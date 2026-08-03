@@ -38,7 +38,7 @@ def check_password(password, hashed_password):
     except Exception:
         return False
 
-# --- 🗄️ SQLite ბაზა და მიგრაცია ---
+# --- 🗄️ SQLite ბაზა და მიგრაცია (გაუმჯობესებული უსაფრთხოებით) ---
 def init_database():
     try:
         conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
@@ -107,7 +107,7 @@ CLINICS_LIST = [
     "ქირურგიის ეროვნული ცენტრის ბათუმის კლინიკა"
 ]
 
-@st.cache_data(ttl=60, show_spinner=False)
+@st.cache_data(ttl=30, show_spinner=False)
 def fetch_doctors():
     try:
         conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
@@ -150,15 +150,17 @@ def log_action(actor, action_type, target_name, details):
 
 def extract_text_from_pdf(uploaded_file):
     if not PYPDF_AVAILABLE:
-        return "OCR მოდული მიუწვდომელია"
+        return "OCR მოდული მიუწვდომელია (pypdf ბიბლიოთეკა არ არის დაინსტალირებული)"
     try:
         reader = pypdf.PdfReader(uploaded_file)
         text = ""
-        for page in reader.pages:
-            text += page.extract_text() or ""
-        return text
-    except Exception:
-        return ""
+        for i, page in enumerate(reader.pages):
+            extracted = page.extract_text()
+            if extracted:
+                text += f"--- გვერდი {i+1} ---\n" + extracted + "\n\n"
+        return text if text.strip5() != "" else "ფაილში ტექსტი ვერ მოიძებნა (შესაძლოა სკანირებული სურათია)"
+    except Exception as e:
+        return f"შეცდომა PDF-ის წაკითხვისას: {e}"
 
 # --- ავტორიზაცია, სესია და Screen Lock მექანიზმი ---
 if "logged_in" not in st.session_state:
@@ -175,11 +177,11 @@ if "active_view_date" not in st.session_state:
     st.session_state.active_view_date = datetime.today().date()
 
 if st.session_state.logged_in and st.session_state.login_time:
-    if datetime.now() - st.session_state.login_time > timedelta(minutes=10):
+    if datetime.now() - st.session_state.login_time > timedelta(minutes=15):
         st.session_state.logged_in = False
         st.session_state.screen_locked = False
         st.session_state.current_user = None
-        st.warning("⏱️ უსაფრთხოების მიზნით 10-წუთიანი უმოქმედობის სესიის ვადა ამოიწურა. გთხოვთ გაიაროთ ავტორიზაცია თავიდან.")
+        st.warning("⏱️ უსაფრთხოების მიზნით 15-წუთიანი უმოქმედობის სესიის ვადა ამოიწურა. გთხოვთ გაიაროთ ავტორიზაცია თავიდან.")
         st.rerun()
 
 def render_login(is_lock_screen=False):
@@ -252,7 +254,7 @@ if st.session_state.screen_locked:
     render_login(is_lock_screen=True)
     st.stop()
 
-# --- 💎 ULTRA-PREMIUM UI / CSS / ANIMATIONS დიზაინი ---
+# --- 💎 ULTRA-PREMIUM UI / CSS / ANIMATIONS დიზაინი (მობილურისთვის ოპტიმიზებული) ---
 st.markdown("""
     <style>
         .stApp {
@@ -263,47 +265,37 @@ st.markdown("""
         .main { background: transparent !important; }
         .header-card {
             background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.85) 100%);
-            padding: 36px; border-radius: 24px;
+            padding: 30px; border-radius: 20px;
             border: 1px solid rgba(129, 140, 248, 0.25); border-left: 8px solid #6366f1;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-            margin-bottom: 35px; backdrop-filter: blur(25px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+            margin-bottom: 25px; backdrop-filter: blur(20px);
         }
         .login-card-container {
             background: linear-gradient(145deg, rgba(15, 23, 42, 0.85) 0%, rgba(7, 13, 29, 0.95) 100%);
-            padding: 35px 30px; border-radius: 24px; border: 1px solid rgba(129, 140, 248, 0.3);
-            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(99, 102, 241, 0.15);
-            backdrop-filter: blur(30px); width: 100%; margin: 10px auto 20px auto; position: relative; overflow: hidden; text-align: center;
+            padding: 30px 20px; border-radius: 20px; border: 1px solid rgba(129, 140, 248, 0.3);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8); width: 100%; margin: 10px auto; position: relative; overflow: hidden; text-align: center;
         }
-        .login-card-container::before {
-            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
-            background: linear-gradient(90deg, #4f46e5, #6366f1, #a855f7); box-shadow: 0 0 15px #6366f1;
-        }
-        .login-title { color: #ffffff; text-align: center; font-size: 24px; font-weight: 800; margin-bottom: 8px; }
-        .login-subtitle { color: #94a3b8; text-align: center; font-size: 14px; margin-bottom: 0px; line-height: 1.4; }
-        .board-card {
-            background: linear-gradient(145deg, rgba(30, 41, 59, 0.5) 0%, rgba(15, 23, 42, 0.7) 100%);
-            border: 1px solid rgba(129, 140, 248, 0.2); padding: 30px; border-radius: 22px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4); height: 100%; display: flex; flex-direction: column; justify-content: space-between; backdrop-filter: blur(20px);
-        }
+        .login-title { color: #ffffff; text-align: center; font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+        .login-subtitle { color: #94a3b8; text-align: center; font-size: 13px; margin-bottom: 0px; }
         section[data-testid="stSidebar"] {
             background: linear-gradient(180deg, #030712 0%, #070d1d 50%, #0f172a 100%) !important;
-            border-right: 1px solid rgba(129, 140, 248, 0.2); padding-top: 20px;
+            border-right: 1px solid rgba(129, 140, 248, 0.2); padding-top: 15px;
         }
         section[data-testid="stSidebar"] .stRadio label {
-            background: rgba(30, 41, 59, 0.4); border-radius: 14px; padding: 12px 16px !important;
+            background: rgba(30, 41, 59, 0.4); border-radius: 12px; padding: 10px 14px !important;
             border: 1px solid rgba(129, 140, 248, 0.15); width: 100% !important; display: flex !important; align-items: center !important; cursor: pointer; transition: all 0.3s ease;
         }
         section[data-testid="stSidebar"] .stRadio label:hover {
             background: linear-gradient(135deg, rgba(79, 70, 229, 0.3) 0%, rgba(99, 102, 241, 0.4) 100%);
-            border-color: rgba(129, 140, 248, 0.6); transform: translateX(6px);
+            border-color: rgba(129, 140, 248, 0.6);
         }
         .stButton > button {
-            border-radius: 14px !important; font-weight: 700 !important; font-size: 16px !important; padding: 13px 26px !important;
-            border: 1px solid rgba(129, 140, 248, 0.5) !important; background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%) !important; color: white !important; box-shadow: 0 10px 25px rgba(79, 70, 229, 0.4);
+            border-radius: 12px !important; font-weight: 700 !important; font-size: 15px !important; padding: 12px 20px !important;
+            border: 1px solid rgba(129, 140, 248, 0.5) !important; background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%) !important; color: white !important; box-shadow: 0 8px 20px rgba(79, 70, 229, 0.4);
         }
         [data-testid="stMetric"] {
             background: linear-gradient(145deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.8) 100%);
-            padding: 22px; border-radius: 20px; border: 1px solid rgba(129, 140, 248, 0.25); box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+            padding: 18px; border-radius: 16px; border: 1px solid rgba(129, 140, 248, 0.25); box-shadow: 0 8px 25px rgba(0,0,0,0.4);
         }
     </style>
 """, unsafe_allow_html=True)
@@ -321,14 +313,14 @@ if os.path.exists(ALERTS_FILE):
 # --- 🌟 ზედა ჰედერი ---
 st.markdown(f"""
     <div class='header-card'>
-        <div style='font-size: 13px; color: #818cf8; margin-bottom: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px;'>უწყვეტი სამედიცინო განათლების მართვის პანელი</div>
-        <div style='display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;'>
+        <div style='font-size: 12px; color: #818cf8; margin-bottom: 6px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px;'>უწყვეტი სამედიცინო განათლების მართვის პანელი</div>
+        <div style='display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;'>
             <div>
-                <h2 style='color: white; margin: 0; font-size: 34px; font-weight: 800; letter-spacing: -0.5px;'>🧬 NCOS CPD/Academic Programs Portal</h2>
-                <p style='color: #94a3b8; margin: 8px 0 0 0; font-size: 16px;'>კლინიკური მართვა, პერსონალის კვალიფიკაცია და რისკების კონტროლი</p>
+                <h2 style='color: white; margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.5px;'>🧬 NCOS CPD/Academic Programs Portal</h2>
+                <p style='color: #94a3b8; margin: 6px 0 0 0; font-size: 14px;'>კლინიკური მართვა, პერსონალის კვალიფიკაცია და რისკების კონტროლი</p>
             </div>
             <div>
-                <span style='background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; padding: 12px 26px; border-radius: 30px; font-size: 15px; font-weight: 700; box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);'>👤 აქტიური მენეჯერი: <b>{st.session_state.current_user}</b></span>
+                <span style='background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; padding: 10px 22px; border-radius: 25px; font-size: 14px; font-weight: 700; box-shadow: 0 5px 15px rgba(99, 102, 241, 0.5);'>👤 აქტიური მენეჯერი: <b>{st.session_state.current_user}</b></span>
             </div>
         </div>
     </div>
@@ -336,7 +328,7 @@ st.markdown(f"""
 
 # --- 🧭 საიდბარი (მენიუ) ---
 st.sidebar.markdown(f"**👤 მომხმარებელი:** {st.session_state.current_user}")
-if st.sidebar.button("🔒 ეკრანი დაბლოკვა (Lock)", use_container_width=True):
+if st.sidebar.button("🔒 ეკრანის დაბლოკვა (Lock)", use_container_width=True):
     st.session_state.screen_locked = True
     st.rerun()
 
@@ -374,7 +366,7 @@ if st.sidebar.button("🚪 სისტემიდან გასვლა", u
 # =========================================================================
 if menu_selection == "📚 სალექციო პროცესის მართვა":
     st.subheader("📚 სალექციო პროცესის მართვა და აუდიტორიების განრიგი")
-    st.markdown("<p style='color: #94a3b8;'>აირჩიე სასურველი თარიღი და ნახე აუდიტორიების დატვირთულობა შენარჩუნებული კონფლიქტებისა და მენეჯმენტის ინსტრუმენტებით.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #94a3b8;'>აირჩიე სასურველი თარიღი და ნახე აუდიტორიების დატვირთულობა მკაცრი ვალიდაციითა და კონფლიქტების პრევენციით.</p>", unsafe_allow_html=True)
 
     hours_cols = [f"{h:02d}:00" for h in range(9, 19)]
     auditoriums = ["აუდიტორია 1", "აუდიტორია 2", "აუდიტორია 3", "აუდიტორია 4", "აუდიტორია 5"]
@@ -391,7 +383,7 @@ if menu_selection == "📚 სალექციო პროცესის მ
     else:
         df_lectures = pd.DataFrame(columns=["lector", "course", "university", "start_date", "end_date", "auditorium", "start_hour", "end_hour", "weekend_mode", "total_hours"])
 
-    # --- 🗓️ სტაბილური ფორმა თარიღის ასარჩევად (გვერდის ახტომის გარეშე) ---
+    # --- 🗓️ სტაბილური თარიღის ამორჩეველი (გვერდის ახტომის გარეშე) ---
     with st.form("date_view_form"):
         col_d_sel1, col_d_sel2 = st.columns([2, 1])
         with col_d_sel1:
@@ -404,7 +396,7 @@ if menu_selection == "📚 სალექციო პროცესის მ
             st.session_state.active_view_date = picked_date
 
     selected_dt = pd.to_datetime(st.session_state.active_view_date)
-    sel_weekday = selected_dt.weekday() # 0-4 ორშაბათი-პარასკევი, 5 შაბათი, 6 კვირა
+    sel_weekday = selected_dt.weekday()
 
     st.markdown(f"### 📊 აუდიტორიების განრიგი თარიღისთვის: <span style='color: #818cf8;'>{st.session_state.active_view_date}</span>", unsafe_allow_html=True)
     
@@ -420,7 +412,6 @@ if menu_selection == "📚 სალექციო პროცესის მ
                     
                     if s_date <= selected_dt <= e_date:
                         w_mode = str(lec.get("weekend_mode", "არცერთი"))
-                        
                         is_valid_day = False
                         if sel_weekday < 5:
                             is_valid_day = True
@@ -446,12 +437,8 @@ if menu_selection == "📚 სალექციო პროცესის მ
 
     st.markdown("---")
 
-    # =========================================================================
-    # 🧹 განრიგის და ცხრილის მართვისა და გასუფთავების პანელი
-    # =========================================================================
+    # --- 🧹 მართვისა და გასუფთავების პანელი ---
     st.markdown("### 🧹 ცხრილისა და განრიგის მართვა / გასუფთავება")
-    st.markdown("<p style='color: #94a3b8; font-size: 14px;'>შეგიძლია წაშალო კონკრეტული ლექცია ლექტორის, კურსის ან აუდიტორიის მიხედვით, ან სრულად გაასუფთავო ცხრილი.</p>", unsafe_allow_html=True)
-
     if not df_lectures.empty:
         with st.expander("🛠️ ლექციების წაშლის / გასუფთავების ინსტრუმენტები", expanded=False):
             st.markdown("#### 🗑️ კონკრეტული ლექციის წაშლა")
@@ -469,7 +456,6 @@ if menu_selection == "📚 სალექციო პროცესის მ
                     st.rerun()
 
             st.markdown("---")
-            
             st.markdown("#### ⚠️ სრული განრიგის გასუფთავება")
             if st.button("🚨 ყველაფრის წაშლა და განრიგის სრულად გასუფთავება", type="secondary", use_container_width=True):
                 df_empty = pd.DataFrame(columns=["lector", "course", "university", "start_date", "end_date", "auditorium", "start_hour", "end_hour", "weekend_mode", "total_hours"])
@@ -481,13 +467,13 @@ if menu_selection == "📚 სალექციო პროცესის მ
         st.info("ℹ️ განრიგი ცარიელია, გასუფთავება საჭირო არ არის.")
 
     st.markdown("---")
-    st.markdown("### 📝 ლექციის / კურსის დაგეგმვის ფორმა")
+    st.markdown("### 📝 ლექციის / კურსის დაგეგმვის ფორმა (მკაცრი ვალიდაციით)")
 
     with st.form("lecture_form"):
         col_f1, col_f2 = st.columns(2)
         with col_f1:
-            lector_name = st.text_input("👨‍🏫 ლექტორი:", placeholder="ჩაწერეთ ლექტორის სახელი და გვარი")
-            course_name = st.text_input("📖 კურსის დასახელება:", placeholder="მაგ: ფუნდამენტური საზოგადოებრივი ჯანდაცვა")
+            lector_name = st.text_input("👨‍🏫 ლექტორი (* სავალდებულო):", placeholder="მაგ: გიორგი ბერიძე")
+            course_name = st.text_input("📖 კურსის დასახელება (* სავალდებულო):", placeholder="მაგ: კლინიკური კომუნიკაცია")
         with col_f2:
             university_name = st.text_input("🏛️ უნივერსიტეტი:", placeholder="მაგ: Caucasus University")
             sel_auditorium = st.selectbox("🚪 აუდიტორია:", auditoriums)
@@ -504,7 +490,6 @@ if menu_selection == "📚 სალექციო პროცესის მ
         with col_h2:
             end_hour = st.selectbox("⏰ დასასრული საათი:", hours_cols, index=3)
 
-        # 🎯 შაბათ-კვირის სამი სრული ვარიანტი
         st.markdown("<p style='font-size: 14px; font-weight: 600; color: #cbd5e1; margin-bottom: 5px;'>📅 შაბათ-კვირის გრაფიკი:</p>", unsafe_allow_html=True)
         col_w1, col_w2, col_w3 = st.columns(3)
         with col_w1:
@@ -517,12 +502,15 @@ if menu_selection == "📚 სალექციო პროცესის მ
         submit_lecture = st.form_submit_button("🚀 ლექციის დაგეგმვა და განრიგში ასახვა", use_container_width=True)
         
         if submit_lecture:
-            if not course_name.strip() or not lector_name.strip():
-                st.error("⚠️ გთხოვთ, შეავსოთ ლექტორი და კურსის დასახელება!")
+            # მკაცრი ვალიდაცია
+            if not lector_name.strip() or not course_name.strip():
+                st.error("⚠️ შეცდომა: ლექტორის სახელი და კურსის დასახელება სავალდებულოა!")
+            elif len(lector_name.strip()) < 3:
+                st.error("⚠️ შეცდომა: ლექტორის სახელი ძალიან მოკლეა ან არასწორია!")
             elif start_hour > end_hour:
-                st.error("⚠️ საწყისი საათი არ შეიძლება იყოს დასასრულის საათზე გვიანი!")
+                st.error("⚠️ შეცდომა: საწყისი საათი არ შეიძლება იყოს დასასრულის საათზე გვიანი!")
             elif start_date > end_date:
-                st.error("⚠️ კურსის დასაწყისი თარიღი არ შეიძლება იყოს დასასრულის თარიღზე გვიანი!")
+                st.error("⚠️ შეცდომა: კურსის დასაწყისი თარიღი არ შეიძლება იყოს დასასრულის თარიღზე გვიანი!")
             else:
                 conflict_detected = False
                 conflict_message = ""
@@ -682,6 +670,9 @@ elif menu_selection == "სეთინგები და პაროლებ
 
 elif menu_selection == "📄 OCR სერთიფიკატების სკანერი":
     st.subheader("📄 ინტელექტუალური OCR სერთიფიკატების სკანერი")
+    st.markdown("<p style='color: #94a3b8; font-size: 14px;'>ატვირთეთ ექიმის სერტიფიკატის PDF ფაილი, რათა ავტომატურად ამოიკითხოს ტექსტური მონაცემები.</p>", unsafe_allow_html=True)
     ocr_file = st.file_uploader("აირჩიეთ სერთიფიკატი (.pdf):", type=["pdf"])
     if ocr_file is not None:
-        st.text_area("ამოკითხული ტექსტი:", extract_text_from_pdf(ocr_file), height=200)
+        with st.spinner("მიმდინარეობს დოკუმენტის დამუშავება და სკანირება..."):
+            extracted_text = extract_text_from_pdf(ocr_file)
+        st.text_area("📄 ამოკითხული დოკუმენტის შიგთავსი:", extracted_text, height=250)
