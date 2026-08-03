@@ -167,37 +167,6 @@ def log_action(actor, action_type, target_name, details):
     except Exception:
         pass
 
-def log_credits_history(doctor_name, old_credits, new_credits, actor, reason):
-    try:
-        record = {
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "doctor": doctor_name,
-            "old_credits": old_credits,
-            "new_credits": new_credits,
-            "manager": actor,
-            "reason": reason
-        }
-        if os.path.exists(CREDITS_HISTORY_FILE):
-            df_h = pd.read_csv(CREDITS_HISTORY_FILE)
-            df_h = pd.concat([df_h, pd.DataFrame([record])], ignore_index=True)
-        else:
-            df_h = pd.DataFrame([record])
-        df_h.to_csv(CREDITS_HISTORY_FILE, index=False, encoding='utf-8-sig')
-    except Exception:
-        pass
-
-def get_original_creator(doc_name):
-    if os.path.exists(LOG_FILE):
-        try:
-            df_logs = pd.read_csv(LOG_FILE)
-            reg_logs = df_logs[(df_logs["action"] == "რეგისტრაცია") & (df_logs["target_doctor"].str.strip().str.lower() == doc_name.strip().lower())]
-            if not reg_logs.empty:
-                first_reg = reg_logs.iloc[0]
-                return first_reg["manager"], first_reg["timestamp"]
-        except Exception:
-            pass
-    return "უცნობი მენეჯერი", "უცნობი დრო"
-
 def extract_text_from_pdf(uploaded_file):
     if not PYPDF_AVAILABLE:
         return "OCR მოდული მიუწვდომელია"
@@ -209,58 +178,6 @@ def extract_text_from_pdf(uploaded_file):
         return text
     except Exception:
         return ""
-
-def generate_executive_pdf_report(clinic_name, doctors_list, manager_name):
-    if not REPORTLAB_AVAILABLE:
-        return None
-    try:
-        buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
-        elements = []
-        styles = getSampleStyleSheet()
-        title_style = ParagraphStyle('GeorgianTitle', parent=styles['Heading1'], fontName='DejaVuSans', fontSize=18, textColor=colors.HexColor("#1e1b4b"), spaceAfter=10, alignment=1)
-        subtitle_style = ParagraphStyle('GeorgianSubTitle', parent=styles['Normal'], fontName='DejaVuSans', fontSize=10, textColor=colors.HexColor("#475569"), spaceAfter=20, alignment=1)
-        cell_style = ParagraphStyle('GeorgianCell', parent=styles['Normal'], fontName='DejaVuSans', fontSize=9, alignment=1)
-        header_cell_style = ParagraphStyle('GeorgianHeaderCell', parent=styles['Normal'], fontName='DejaVuSans', fontSize=9, textColor=colors.whitesmoke, alignment=1)
-
-        elements.append(Paragraph(f"<b>NCOS CPD/Academic Programs Portal — Clinical Audit Report</b>", title_style))
-        elements.append(Paragraph(f"<b>კლინიკა / დეპარტამენტი:</b> {clinic_name}<br/><b>გენერირებულია:</b> {datetime.now().strftime('%Y-%m-%d %H:%M')} | <b>პასუხისმგებელი:</b> {manager_name}", subtitle_style))
-        elements.append(Spacer(1, 10))
-        
-        table_data = [[
-            Paragraph("<b>№</b>", header_cell_style), 
-            Paragraph("<b>ექიმი</b>", header_cell_style), 
-            Paragraph("<b>სპეციალობა</b>", header_cell_style), 
-            Paragraph("<b>კრედიტები</b>", header_cell_style), 
-            Paragraph("<b>სტატუსი</b>", header_cell_style),
-            Paragraph("<b>ლიცენზიის ვადა</b>", header_cell_style)
-        ]]
-        for idx, doc_item in enumerate(doctors_list, 1):
-            c = doc_item.get('credits', 0)
-            status_str = "სრულ წესრიგშია" if c >= 30 else ("ყურადღებმისაქცევი" if c >= 16 else "კრიტიკული")
-            table_data.append([
-                Paragraph(str(idx), cell_style),
-                Paragraph(str(doc_item.get('name', '')), cell_style),
-                Paragraph(str(doc_item.get('specialty', '')), cell_style),
-                Paragraph(str(c), cell_style),
-                Paragraph(status_str, cell_style),
-                Paragraph(str(doc_item.get('expiry_date', '')), cell_style)
-            ])
-        t = Table(table_data, colWidths=[25, 140, 110, 60, 95, 80])
-        t.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#4f46e5")),
-            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('BOTTOMPADDING', (0,0), (-1,0), 6),
-            ('BACKGROUND', (0,1), (-1,-1), colors.HexColor("#f8fafc")),
-            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#cbd5e1")),
-        ]))
-        elements.append(t)
-        doc.build(elements)
-        buffer.seek(0)
-        return buffer.getvalue()
-    except Exception:
-        return None
 
 # --- ავტორიზაცია, სესია და Screen Lock მექანიზმი ---
 if "logged_in" not in st.session_state:
@@ -352,7 +269,7 @@ if st.session_state.screen_locked:
     render_login(is_lock_screen=True)
     st.stop()
 
-# --- 💎 ULTRA-PREMIUM UI / CSS / ANIMATIONS დიზაინი (ძველი სტილი) ---
+# --- 💎 UI / CSS დიზაინი ---
 st.markdown("""
     <style>
         .stApp {
@@ -383,14 +300,6 @@ st.markdown("""
             background: linear-gradient(180deg, #030712 0%, #070d1d 50%, #0f172a 100%) !important;
             border-right: 1px solid rgba(129, 140, 248, 0.2); padding-top: 20px;
         }
-        section[data-testid="stSidebar"] .stRadio label {
-            background: rgba(30, 41, 59, 0.4); border-radius: 14px; padding: 12px 16px !important;
-            border: 1px solid rgba(129, 140, 248, 0.15); width: 100% !important; display: flex !important; align-items: center !important; cursor: pointer; transition: all 0.3s ease;
-        }
-        section[data-testid="stSidebar"] .stRadio label:hover {
-            background: linear-gradient(135deg, rgba(79, 70, 229, 0.3) 0%, rgba(99, 102, 241, 0.4) 100%);
-            border-color: rgba(129, 140, 248, 0.6); transform: translateX(6px);
-        }
         .stButton > button {
             border-radius: 14px !important; font-weight: 700 !important; font-size: 16px !important; padding: 13px 26px !important;
             border: 1px solid rgba(129, 140, 248, 0.5) !important; background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%) !important; color: white !important; box-shadow: 0 10px 25px rgba(79, 70, 229, 0.4);
@@ -401,16 +310,6 @@ st.markdown("""
         }
     </style>
 """, unsafe_allow_html=True)
-
-# --- 🌟 გლობალური Alert ---
-if os.path.exists(ALERTS_FILE):
-    try:
-        df_alerts = pd.read_csv(ALERTS_FILE)
-        if not df_alerts.empty:
-            latest_alert = df_alerts.iloc[-1]["alert_text"]
-            st.error(f"🚨 **ოფიციალური განგაში / შეტყობინება მენეჯმენტიდან:** {latest_alert}")
-    except:
-        pass
 
 # --- 🌟 ზედა ჰედერი ---
 st.markdown(f"""
@@ -464,23 +363,26 @@ if st.sidebar.button("🚪 სისტემიდან გასვლა", u
     st.rerun()
 
 # =========================================================================
-# 📚 სალექციო პროცესის მართვა (რეპორტის ექსპორტით)
+# 📚 სალექციო პროცესის მართვა (შაბათ-კვირის გათვალისწინებით)
 # =========================================================================
 if menu_selection == "📚 სალექციო პროცესის მართვა":
     st.subheader("📚 სალექციო პროცესის მართვა და აუდიტორიების განრიგი")
-    st.markdown("<p style='color: #94a3b8;'>აუდიტორიების დატვირთულობის ცხრილი, ლექციების დაგეგმვის პანელი და დეტალური რეპორტის ექსპორტი.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #94a3b8;'>აუდიტორიების დატვირთულობის ცხრილი და ლექციების დაგეგმვის პანელი შაბათ-კვირის გათვალისწინებით.</p>", unsafe_allow_html=True)
 
     hours_cols = [f"{h:02d}:00" for h in range(9, 19)]
     auditoriums = ["აუდიტორია 1", "აუდიტორია 2", "აუდიტორია 3", "აუდიტორია 4", "აუდიტორია 5"]
     
-    # ვინახავთ დაგეგმილ ლექციებს CSV ფაილში
     if os.path.exists(LECTURES_FILE):
         try:
             df_lectures = pd.read_csv(LECTURES_FILE)
+            if "total_hours" not in df_lectures.columns:
+                df_lectures["total_hours"] = 1
+            if "include_weekend" not in df_lectures.columns:
+                df_lectures["include_weekend"] = "არა"
         except:
-            df_lectures = pd.DataFrame(columns=["lector", "course", "university", "start_date", "end_date", "auditorium", "start_hour", "end_hour"])
+            df_lectures = pd.DataFrame(columns=["lector", "course", "university", "start_date", "end_date", "auditorium", "start_hour", "end_hour", "include_weekend", "total_hours"])
     else:
-        df_lectures = pd.DataFrame(columns=["lector", "course", "university", "start_date", "end_date", "auditorium", "start_hour", "end_hour"])
+        df_lectures = pd.DataFrame(columns=["lector", "course", "university", "start_date", "end_date", "auditorium", "start_hour", "end_hour", "include_weekend", "total_hours"])
 
     # --- 🗓️ აუდიტორიების განრიგის ცხრილი ---
     st.markdown("### 📊 აუდიტორიების განრიგი (დატვირთულობის ინდიკატორი)")
@@ -505,21 +407,25 @@ if menu_selection == "📚 სალექციო პროცესის მ
 
     st.markdown("---")
 
-    # --- 📥 სალექციო რეპორტის ფაილის გატანა (Export) ---
+    # --- 📥 სალექციო რეპორტის ფაილის გატანა (.xlsx ფორმატით) ---
     st.markdown("### 📥 ლექციების ჩატარების დეტალური რეპორტი")
-    st.markdown("<p style='color: #94a3b8; font-size: 14px;'>გადმოწერეთ სრული რეპორტი დაგეგმილი ლექციების, ლექტორებისა და უნივერსიტეტების შესახებ.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #94a3b8; font-size: 14px;'>გადმოწერეთ სრული რეპორტი საათებისა და შაბათ-კვირის გათვალისწინებით (.xlsx ფორმატი).</p>", unsafe_allow_html=True)
     
     if not df_lectures.empty:
-        lectures_csv_data = df_lectures.to_csv(index=False).encode('utf-8-sig')
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            df_lectures.to_excel(writer, index=False, sheet_name='Lectures_Report')
+        excel_data = output.getvalue()
+
         st.download_button(
-            label="📥 დეტალური სალექციო რეპორტის გადმოწერა (CSV)",
-            data=lectures_csv_data,
-            file_name="Lectures_Detailed_Report.csv",
-            mime="text/csv",
+            label="📥 დეტალური სალექციო რეპორტის გადმოწერა (Excel .xlsx)",
+            data=excel_data,
+            file_name="Lectures_Detailed_Report.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True
         )
     else:
-        st.info("ℹ️ დაგეგმილი ლექციები ჯერ არ ფიქსირდება ბაზაში, შესაბამისად რეპორტი ცარიელია.")
+        st.info("ℹ️ დაგეგმილი ლექციები ჯერ არ ფიქსირდება ბაზაში.")
 
     st.markdown("---")
     st.markdown("### 📝 ლექციის / კურსის დაგეგმვის ფორმა")
@@ -544,6 +450,9 @@ if menu_selection == "📚 სალექციო პროცესის მ
             start_hour = st.selectbox("⏰ საწყისი საათი:", hours_cols, index=0)
         with col_h2:
             end_hour = st.selectbox("⏰ დასასრული საათი:", hours_cols, index=3)
+
+        # 🎯 შაბათ-კვირის ჩართვის Checkbox
+        include_weekend = st.checkbox("📅 ტარდება თუ არა ლექცია შაბათ-კვირასაც?")
         
         submit_lecture = st.form_submit_button("🚀 ლექციის დაგეგმვა და განრიგში ასახვა", use_container_width=True)
         
@@ -553,6 +462,26 @@ if menu_selection == "📚 სალექციო პროცესის მ
             elif start_hour > end_hour:
                 st.error("⚠️ საწყისი საათი არ შეიძლება იყოს დასასრულის საათზე გვიანი!")
             else:
+                # გამოვთვლით დღეების რაოდენობას შაბათ-კვირის გათვალისწინებით
+                d_start = pd.to_datetime(start_date)
+                d_end = pd.to_datetime(end_date)
+                
+                total_calculated_hours = 0
+                current_d = d_start
+                s_idx = hours_cols.index(start_hour)
+                e_idx = hours_cols.index(end_hour)
+                hours_per_day = (e_idx - s_idx) + 1
+
+                while current_d <= d_end:
+                    weekday = current_d.weekday() # 0-4 არის ორშაბათი-პარასკევი, 5-6 შაბათ-კვირა
+                    if weekday < 5:
+                        total_calculated_hours += hours_per_day
+                    elif include_weekend:
+                        total_calculated_hours += hours_per_day
+                    current_d += timedelta(days=1)
+
+                weekend_str = "კი" if include_weekend else "არა"
+
                 new_lec_record = {
                     "lector": lector_name.strip(),
                     "course": course_name.strip(),
@@ -561,135 +490,32 @@ if menu_selection == "📚 სალექციო პროცესის მ
                     "end_date": str(end_date),
                     "auditorium": sel_auditorium,
                     "start_hour": start_hour,
-                    "end_hour": end_hour
+                    "end_hour": end_hour,
+                    "include_weekend": weekend_str,
+                    "total_hours": total_calculated_hours
                 }
                 try:
                     df_new = pd.concat([df_lectures, pd.DataFrame([new_lec_record])], ignore_index=True)
                     df_new.to_csv(LECTURES_FILE, index=False, encoding='utf-8-sig')
-                    log_action(st.session_state.current_user, "ლექციის დაგეგმვა", lector_name.strip(), f"კურსი: {course_name}, აუდიტორია: {sel_auditorium}, შუალედი: {start_hour}-{end_hour}")
-                    st.success("✅ ლექცია წარმატებით დაიგეგმა და აისახა განრიგის ცხრილში!")
+                    log_action(st.session_state.current_user, "ლექციის დაგეგმვა", lector_name.strip(), f"კურსი: {course_name}, შაბათ-კვირა: {weekend_str}, საათები: {total_calculated_hours}სთ")
+                    st.success(f"✅ ლექცია წარმატებით დაიგეგმა! შაბათ-კვირის გათვალისწინებით ჯამური საათები: **{total_calculated_hours} სთ**")
                     st.rerun()
                 except Exception as e:
                     st.error(f"შეცდომა შენახვისას: {e}")
-
 
 # =========================================================================
 # მთავარი დაფა & დანარჩენი ძველი სექციები
 # =========================================================================
 elif menu_selection == "მთავარი დაფა & ანალიტიკა":
     st.subheader("📊 მთავარი დაფა — ანალიტიკა და ვიზუალური დიაგრამები")
-    
     doctors_data = fetch_doctors()
     df_main = pd.DataFrame(doctors_data)
-    
     low_count = len(df_main[df_main["credits"] < 30]) if not df_main.empty else 0
 
     col_1, col_2, col_3 = st.columns(3)
     col_1.metric("რეგისტრირებულ ექიმთა საერთო რაოდენობა", len(df_main))
     col_2.metric("ჩართული კლინიკური ცენტრები", len(CLINICS_LIST))
     col_3.metric("ექიმები (<30 კრედიტით)", low_count)
-    
-    st.markdown("---")
-
-    # --- 📢 გლობალური Alert-ის გაგზავნა ---
-    st.markdown("### 📢 გლობალური შეტყობინება / Broadcast Alert მენეჯმენტიდან")
-    st.markdown("<p style='color: #94a3b8; font-size: 14px;'>ჩაწერეთ ტექსტი ქვემოთ მოცემულ ველში და გაგზავნეთ — შეტყობინება მყისიერად გამოჩნდება სისტემის ყველა მომხმარებელთან.</p>", unsafe_allow_html=True)
-    
-    with st.form("broadcast_alert_form"):
-        broadcast_text = st.text_area("შეტყობინების ტექსტი:", placeholder="გააფრთხილეთ პერსონალი მნიშვნელოვანი ცვლილების ან ღონისძიების შესახებ...")
-        submit_alert = st.form_submit_button("📢 ერთიანი Alert-ის გაგზავნა", use_container_width=True)
-        
-        if submit_alert:
-            if broadcast_text.strip():
-                try:
-                    new_alert_record = {
-                        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                        "sender": st.session_state.current_user,
-                        "alert_text": broadcast_text.strip()
-                    }
-                    if os.path.exists(ALERTS_FILE):
-                        df_alt = pd.read_csv(ALERTS_FILE)
-                        df_alt = pd.concat([df_alt, pd.DataFrame([new_alert_record])], ignore_index=True)
-                    else:
-                        df_alt = pd.DataFrame([new_alert_record])
-                    df_alt.to_csv(ALERTS_FILE, index=False, encoding='utf-8-sig')
-                    log_action(st.session_state.current_user, "Broadcast Alert", "ყველა მომხმარებელი", broadcast_text.strip())
-                    st.success("✅ განგაში/შეტყობინება წარმატებით გაიგზავნა და აისახა სისტემაში!")
-                except Exception as e:
-                    st.error(f"შეცდომა შეტყობინების გაგზავნისას: {e}")
-            else:
-                st.warning("⚠️ გთხოვთ, შეიყვანოთ შეტყობინების ტექსტი!")
-
-    st.markdown("---")
-
-    if not df_main.empty:
-        st.markdown("### 📈 დეპარტამენტებისა და სპეციალობების ანალიტიკური დიაგრამები")
-        g_col1, g_col2 = st.columns(2)
-        with g_col1:
-            st.markdown("#### 🏥 კრედიტების განაწილება კლინიკების მიხედვით")
-            st.bar_chart(df_main.groupby("clinic")["credits"].sum())
-        with g_col2:
-            st.markdown("#### 🩺 ექიმების რაოდენობა სპეციალობების მიხედვით")
-            st.bar_chart(df_main["specialty"].value_counts())
-    
-    st.markdown("---")
-    board_col1, board_col2 = st.columns(2)
-
-    with board_col1:
-        st.markdown("<div class='board-card'>", unsafe_allow_html=True)
-        st.markdown("""
-            <div>
-                <h3>⚡ ექიმებისთვის კრედიტქულების დამატება</h3>
-                <p style='color: #94a3b8; font-size: 14px;'>აირჩიეთ ექიმი და სწრაფად მიანიჭეთ ან ჩამოაჭერით კრედიტქულები.</p>
-            </div>
-        """, unsafe_allow_html=True)
-        
-        if doctors_data:
-            doc_names = [d["name"] for d in doctors_data]
-            selected_doc_for_points = st.selectbox("აირჩიეთ ექიმი:", doc_names, key="main_pts_select_board")
-            target_doc_main = next((d for d in doctors_data if d["name"] == selected_doc_for_points), None)
-            
-            if target_doc_main:
-                st.markdown(f"**მიმდინარე ბალანსი:** `{target_doc_main['credits']}` ქულა | **კლინიკა:** {target_doc_main['clinic']}")
-                
-                with st.form("main_points_form_board"):
-                    pts_change = st.number_input("ქულების ოდენობა:", min_value=1, max_value=50, value=10)
-                    action_type = st.radio("ოპერაცია:", ["ქულების დამატება (+)", "ქულების წაშლა (-)"], horizontal=True)
-                    reason_text = st.text_input("ოპერაციის მიზეზი / სასწავლო კურსი:")
-                    submit_main_pts = st.form_submit_button("💾 ქულების განახლება ბაზაში", use_container_width=True)
-                    
-                    if submit_main_pts:
-                        old_creds = target_doc_main['credits']
-                        new_credits = old_creds + pts_change if "დამატება" in action_type else max(0, old_creds - pts_change)
-                        try:
-                            conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
-                            cursor = conn.cursor()
-                            cursor.execute("UPDATE doctors SET credits = ?, last_updated = ? WHERE id = ?", (new_credits, str(datetime.now()), target_doc_main['id']))
-                            conn.commit()
-                            conn.close()
-                            
-                            action_label = "ქულების დამატება" if "დამატება" in action_type else "ქულების წაშლა"
-                            log_action(st.session_state.current_user, action_label, target_doc_main['name'], f"რაოდენობა: {pts_change}, მიზეზი: {reason_text}. ახალი ჯამი: {new_credits}")
-                            log_credits_history(target_doc_main['name'], old_creds, new_credits, st.session_state.current_user, reason_text)
-                            st.cache_data.clear()
-                            st.success("✅ კრედიტქულები წარმატებით განახლდა!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"შეცდომა ბაზასთან მიმართვისას: {e}")
-        else:
-            st.info("ექიმები არ არის რეგისტრირებული.")
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    with board_col2:
-        st.markdown("<div class='board-card'>", unsafe_allow_html=True)
-        st.markdown("""
-            <div>
-                <h3>📌 ინფორმაცია მონიტორინგზე</h3>
-                <p style='color: #94a3b8; font-size: 15px;'>რისკის ქვეშ მყოფი ექიმების სია (<30 კრედიტი) გადატანილია ცალკე ქვე-ტაბში:</p>
-                <p style='color: #818cf8; font-size: 15px; font-weight: 700;'>👉 ექიმების რეესტრი ➔ „🚨 რისკის ქვეშ მყოფი ექიმები“</p>
-            </div>
-        """, unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
 
 elif menu_selection == "👤 ექიმის პირადი პორტალი":
     st.subheader("👤 ექიმის პირადი პორტალი (Doctor Self-Service)")
@@ -702,7 +528,6 @@ elif menu_selection == "👤 ექიმის პირადი პორტ�
             c1.metric("მიმდინარე კრედიტები", my_profile["credits"])
             c2.metric("კლინიკა", my_profile["clinic"])
             c3.metric("ლიცენზიის ვადა", my_profile["expiry_date"])
-            st.write(f"**სპეციალობა:** {my_profile['specialty']} | **ელ-ფოსტა:** {my_profile['email']}")
 
 elif menu_selection == "📚 აკრედიტებული კურსები":
     st.subheader("📚 აკრედიტებული სამედიცინო კურსები")
