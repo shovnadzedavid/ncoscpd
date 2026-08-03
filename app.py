@@ -171,6 +171,8 @@ if "current_role" not in st.session_state:
     st.session_state.current_role = None
 if "login_time" not in st.session_state:
     st.session_state.login_time = None
+if "active_view_date" not in st.session_state:
+    st.session_state.active_view_date = datetime.today().date()
 
 if st.session_state.logged_in and st.session_state.login_time:
     if datetime.now() - st.session_state.login_time > timedelta(minutes=10):
@@ -334,7 +336,7 @@ st.markdown(f"""
 
 # --- 🧭 საიდბარი (მენიუ) ---
 st.sidebar.markdown(f"**👤 მომხმარებელი:** {st.session_state.current_user}")
-if st.sidebar.button("🔒 ეკრანის დაბლოკვა (Lock)", use_container_width=True):
+if st.sidebar.button("🔒 ეკრანი დაბლოკვა (Lock)", use_container_width=True):
     st.session_state.screen_locked = True
     st.rerun()
 
@@ -389,15 +391,22 @@ if menu_selection == "📚 სალექციო პროცესის მ
     else:
         df_lectures = pd.DataFrame(columns=["lector", "course", "university", "start_date", "end_date", "auditorium", "start_hour", "end_hour", "weekend_mode", "total_hours"])
 
-    # --- 🗓️ ინტერაქტიული თარიღის ამორჩეველი ცხრილისთვის ---
-    col_d_sel1, col_d_sel2 = st.columns([1, 2])
-    with col_d_sel1:
-        selected_view_date = st.date_input("📅 აირჩიეთ სანახავი თარიღი:", value=datetime.today().date())
-    
-    selected_dt = pd.to_datetime(selected_view_date)
+    # --- 🗓️ სტაბილური ფორმა თარიღის ასარჩევად (გვერდის ახტომის გარეშე) ---
+    with st.form("date_view_form"):
+        col_d_sel1, col_d_sel2 = st.columns([2, 1])
+        with col_d_sel1:
+            picked_date = st.date_input("📅 აირჩიეთ სანახავი თარიღი:", value=st.session_state.active_view_date)
+        with col_d_sel2:
+            st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
+            apply_date_btn = st.form_submit_button("🔍 განრიგის ნახვა", use_container_width=True)
+            
+        if apply_date_btn:
+            st.session_state.active_view_date = picked_date
+
+    selected_dt = pd.to_datetime(st.session_state.active_view_date)
     sel_weekday = selected_dt.weekday() # 0-4 ორშაბათი-პარასკევი, 5 შაბათი, 6 კვირა
 
-    st.markdown(f"### 📊 აუდიტორიების განრიგი თარიღისთვის: <span style='color: #818cf8;'>{selected_view_date}</span>", unsafe_allow_html=True)
+    st.markdown(f"### 📊 აუდიტორიების განრიგი თარიღისთვის: <span style='color: #818cf8;'>{st.session_state.active_view_date}</span>", unsafe_allow_html=True)
     
     matrix_data = []
     for aud in auditoriums:
@@ -409,14 +418,12 @@ if menu_selection == "📚 სალექციო პროცესის მ
                     s_date = pd.to_datetime(lec.get("start_date"))
                     e_date = pd.to_datetime(lec.get("end_date"))
                     
-                    # ვამოწმებთ ეკუთვნის თუ არა ეს თარიღი კურსის დიაპაზონს
                     if s_date <= selected_dt <= e_date:
                         w_mode = str(lec.get("weekend_mode", "არცერთი"))
                         
-                        # ვამოწმებთ ტარდება თუ არა ლექცია ამ კონკრეტულ კვირის დღეს
                         is_valid_day = False
                         if sel_weekday < 5:
-                            is_valid_day = True # სამუშაო დღეები ყოველთვის ითვლება
+                            is_valid_day = True
                         elif sel_weekday == 5:
                             if "შაბათი" in w_mode:
                                 is_valid_day = True
