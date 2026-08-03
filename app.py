@@ -38,7 +38,7 @@ def check_password(password, hashed_password):
     except Exception:
         return False
 
-# --- 🗄️ SQLite ბაზა და მიგრაცია (გაუმჯობესებული უსაფრთხოებით) ---
+# --- 🗄️ SQLite ბაზა და მიგრაცია ---
 def init_database():
     try:
         conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
@@ -150,7 +150,7 @@ def log_action(actor, action_type, target_name, details):
 
 def extract_text_from_pdf(uploaded_file):
     if not PYPDF_AVAILABLE:
-        return "OCR მოდული მიუწვდომელია (pypdf ბიბლიოთეკა არ არის დაინსტალირებული)"
+        return "OCR მოდული მიუწვდომელია"
     try:
         reader = pypdf.PdfReader(uploaded_file)
         text = ""
@@ -158,9 +158,9 @@ def extract_text_from_pdf(uploaded_file):
             extracted = page.extract_text()
             if extracted:
                 text += f"--- გვერდი {i+1} ---\n" + extracted + "\n\n"
-        return text if text.strip5() != "" else "ფაილში ტექსტი ვერ მოიძებნა (შესაძლოა სკანირებული სურათია)"
+        return text if text.strip() != "" else "ფაილში ტექსტი ვერ მოიძებნა"
     except Exception as e:
-        return f"შეცდომა PDF-ის წაკითხვისას: {e}"
+        return f"შეცდომა: {e}"
 
 # --- ავტორიზაცია, სესია და Screen Lock მექანიზმი ---
 if "logged_in" not in st.session_state:
@@ -254,7 +254,7 @@ if st.session_state.screen_locked:
     render_login(is_lock_screen=True)
     st.stop()
 
-# --- 💎 ULTRA-PREMIUM UI / CSS / ANIMATIONS დიზაინი (მობილურისთვის ოპტიმიზებული) ---
+# --- 💎 UI / CSS დიზაინი ---
 st.markdown("""
     <style>
         .stApp {
@@ -340,10 +340,10 @@ else:
     menu_options = [
         "მთავარი დაფა & ანალიტიკა", 
         "📚 სალექციო პროცესის მართვა",
+        "ექიმების რეესტრი", 
         "🩺 სპეციალობების & კრედიტების მატრიცა",
         "🚨 კლინიკური რისკ-ჯგუფების ოპერაციული მენეჯმენტი",
         "📈 ექიმის ისტორიისა და დინამიკის ზედამხედველობა",
-        "ექიმების რეესტრი", 
         "კლინიკები", 
         "აუდიტის ჟურნალი", 
         "სეთინგები და პაროლები",
@@ -383,7 +383,6 @@ if menu_selection == "📚 სალექციო პროცესის მ
     else:
         df_lectures = pd.DataFrame(columns=["lector", "course", "university", "start_date", "end_date", "auditorium", "start_hour", "end_hour", "weekend_mode", "total_hours"])
 
-    # --- 🗓️ სტაბილური თარიღის ამორჩეველი (გვერდის ახტომის გარეშე) ---
     with st.form("date_view_form"):
         col_d_sel1, col_d_sel2 = st.columns([2, 1])
         with col_d_sel1:
@@ -436,8 +435,6 @@ if menu_selection == "📚 სალექციო პროცესის მ
     st.dataframe(df_matrix, use_container_width=True, hide_index=True, height=380)
 
     st.markdown("---")
-
-    # --- 🧹 მართვისა და გასუფთავების პანელი ---
     st.markdown("### 🧹 ცხრილისა და განრიგის მართვა / გასუფთავება")
     if not df_lectures.empty:
         with st.expander("🛠️ ლექციების წაშლის / გასუფთავების ინსტრუმენტები", expanded=False):
@@ -467,7 +464,7 @@ if menu_selection == "📚 სალექციო პროცესის მ
         st.info("ℹ️ განრიგი ცარიელია, გასუფთავება საჭირო არ არის.")
 
     st.markdown("---")
-    st.markdown("### 📝 ლექციის / კურსის დაგეგმვის ფორმა (მკაცრი ვალიდაციით)")
+    st.markdown("### 📝 ლექციის / კურსის დაგეგმვის ფორმა")
 
     with st.form("lecture_form"):
         col_f1, col_f2 = st.columns(2)
@@ -502,11 +499,8 @@ if menu_selection == "📚 სალექციო პროცესის მ
         submit_lecture = st.form_submit_button("🚀 ლექციის დაგეგმვა და განრიგში ასახვა", use_container_width=True)
         
         if submit_lecture:
-            # მკაცრი ვალიდაცია
             if not lector_name.strip() or not course_name.strip():
                 st.error("⚠️ შეცდომა: ლექტორის სახელი და კურსის დასახელება სავალდებულოა!")
-            elif len(lector_name.strip()) < 3:
-                st.error("⚠️ შეცდომა: ლექტორის სახელი ძალიან მოკლეა ან არასწორია!")
             elif start_hour > end_hour:
                 st.error("⚠️ შეცდომა: საწყისი საათი არ შეიძლება იყოს დასასრულის საათზე გვიანი!")
             elif start_date > end_date:
@@ -593,7 +587,114 @@ if menu_selection == "📚 სალექციო პროცესის მ
                         st.error(f"შეცდომა შენახვისას: {e}")
 
 # =========================================================================
-# მთავარი დაფა & დანარჩენი ძველი სექციები
+# 📋 ექიმების რეესტრი (სრულად აღდგენილი: რეგისტრაცია, იმპორტი, მართვა)
+# =========================================================================
+elif menu_selection == "ექიმების რეესტრი":
+    st.subheader("📋 ექიმების რეესტრი, რეგისტრაცია და მონაცემთა მართვა")
+    st.markdown("<p style='color: #94a3b8;'>მართეთ ექიმთა ბაზა, დაამატეთ ახალი კადრები, ატვირთეთ Excel ፋილები ან შეასწორეთ მონაცემები.</p>", unsafe_allow_html=True)
+
+    tab_reg, tab_list, tab_import = st.tabs(["➕ ექიმის რეგისტრაცია", "📋 რეესტრი & მართვა / წაშლა", "📁 Excel / CSV იმპორტი"])
+
+    # 1. რეგისტრაციის თაბი
+    with tab_reg:
+        st.markdown("### 📝 ახალი ექიმის რეგისტრაცია ბაზაში")
+        with st.form("doctor_reg_form"):
+            col_r1, col_r2 = st.columns(2)
+            with col_r1:
+                new_doc_name = st.text_input("👤 სახელი და გვარი (* სავალდებულო):", placeholder="მაგ: დავით არაბიძე")
+                new_doc_spec = st.text_input("🩺 სპეციალობა:", placeholder="მაგ: კარდიოლოგია")
+                new_doc_credits = st.number_input("⭐ მიმდინარე კრედიტები:", min_value=0, max_value=200, value=30)
+            with col_r2:
+                new_doc_clinic = st.selectbox("🏥 კლინიკა:", CLINICS_LIST)
+                new_doc_phone = st.text_input("📞 ტელეფონი:", placeholder="+995 599 00 00 00")
+                new_doc_email = st.text_input("📧 ელ-ფოსტა:", placeholder="doctor@edumed.ge")
+            
+            new_doc_notes = st.text_area("📝 შენიშვნა / კლინიკური მახასიათებლები:")
+            
+            submit_doc = st.form_submit_button("💾 ექიმის ბაზაში შენახვა", use_container_width=True)
+            if submit_doc:
+                if not new_doc_name.strip():
+                    st.error("⚠️ ექიმის სახელი და გვარი სავალდებულოა!")
+                else:
+                    try:
+                        conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
+                        cursor = conn.cursor()
+                        cursor.execute("""
+                            INSERT OR REPLACE INTO doctors (name, specialty, credits, clinic, email, phone, notes, expiry_date, last_updated)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (new_doc_name.strip(), new_doc_spec, new_doc_credits, new_doc_clinic, new_doc_email, new_doc_phone, new_doc_notes, "2028-12-31", datetime.now().strftime("%Y-%m-%d")))
+                        conn.commit()
+                        conn.close()
+                        log_action(st.session_state.current_user, "ექიმის რეგისტრაცია", new_doc_name.strip(), f"კლინიკა: {new_doc_clinic}, კრედიტი: {new_doc_credits}")
+                        st.success(f"✅ ექიმი **{new_doc_name}** წარმატებით დარეგისტრირდა!")
+                    except Exception as e:
+                        st.error(f"ტექნიკური შეცდომა ბაზაში ჩაწერისას: {e}")
+
+    # 2. რეესტრი და მართვა / წაშლა
+    with tab_list:
+        st.markdown("### 📋 არსებული ექიმების სია და მართვა")
+        docs_list = fetch_doctors()
+        if docs_list:
+            df_docs = pd.DataFrame(docs_list)
+            st.dataframe(df_docs, use_container_width=True, hide_index=True)
+
+            st.markdown("---")
+            st.markdown("### 🗑️ ექიმის წაშლა ან მონაცემების განახლება")
+            doc_names = [d["name"] for d in docs_list]
+            selected_doc_to_manage = st.selectbox("აირჩიეთ ექიმი მართვისთვის:", ["--- აირჩიეთ ---"] + doc_names)
+
+            if selected_doc_to_manage != "--- აირჩიეთ ---":
+                col_m1, col_m2 = st.columns(2)
+                with col_m1:
+                    if st.button("❌ ექიმის წაშლა ბაზიდან", use_container_width=True):
+                        try:
+                            conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
+                            cursor = conn.cursor()
+                            cursor.execute("DELETE FROM doctors WHERE name = ?", (selected_doc_to_manage,))
+                            conn.commit()
+                            conn.close()
+                            log_action(st.session_state.current_user, "ექიმის წაშლა", selected_doc_to_manage, "ექიმი ამოიშალა რეესტრიდან")
+                            st.success(f"✅ ექიმი **{selected_doc_to_manage}** წაიშალა ბაზიდან!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"შეცდომა წაშლისას: {e}")
+        else:
+            st.info("ℹ️ ექიმთა ბაზა ცარიელია.")
+
+    # 3. Excel / CSV იმპორტის თაბი
+    with tab_import:
+        st.markdown("### 📁 მონაცემთა მასობრივი იმპორტი (Excel / CSV)")
+        st.markdown("<p style='color: #94a3b8; font-size: 14px;'>ატვირთეთ ფაილი (CSV ან Excel), რომელიც შეიცავს ექიმების სიას (სავალდებულო სვეტი: <code>name</code>).</p>", unsafe_allow_html=True)
+        uploaded_csv = st.file_uploader("აირჩიეთ ფაილი:", type=["csv", "xlsx"])
+        if uploaded_csv is not None:
+            try:
+                if uploaded_csv.name.endswith('.csv'):
+                    df_imp = pd.read_csv(uploaded_csv)
+                else:
+                    df_imp = pd.read_excel(uploaded_csv)
+                
+                st.write("ატვირთული ფაილის წინასწარი ნახვა:", df_imp.head())
+                if st.button("🚀 მონაცემების ბაზაში ჩატვირთვა", use_container_width=True):
+                    conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
+                    for _, row in df_imp.iterrows():
+                        name = row.get("name", "უცნობი")
+                        spec = row.get("specialty", "ზოგადი")
+                        cred = int(row.get("credits", 30))
+                        clin = row.get("clinic", CLINICS_LIST[0])
+                        conn.execute("""
+                            INSERT OR REPLACE INTO doctors (name, specialty, credits, clinic, expiry_date, last_updated)
+                            VALUES (?, ?, ?, ?, ?, ?)
+                        """, (name, spec, cred, clin, "2028-12-31", datetime.now().strftime("%Y-%m-%d")))
+                    conn.commit()
+                    conn.close()
+                    log_action(st.session_state.current_user, "მასობრივი იმპორტი", uploaded_csv.name, "ფაილიდან მონაცემები აიტვირთა")
+                    st.success("✅ მონაცემები წარმატებით აიტვირთა ბაზაში!")
+                    st.rerun()
+            except Exception as e:
+                st.error(f"შეცდომა ფაილის დამუშავებისას: {e}")
+
+# =========================================================================
+# მთავარი დაფა & დანარჩენი სექციები
 # =========================================================================
 elif menu_selection == "მთავარი დაფა & ანალიტიკა":
     st.subheader("📊 მთავარი დაფა — ანალიტიკა და ვიზუალური დიაგრამები")
@@ -618,10 +719,6 @@ elif menu_selection == "👤 ექიმის პირადი პორტ�
             c2.metric("კლინიკა", my_profile["clinic"])
             c3.metric("ლიცენზიის ვადა", my_profile["expiry_date"])
 
-elif menu_selection == "📚 აკრედიტებული კურსები":
-    st.subheader("📚 აკრედიტებული სამედიცინო კურსები")
-    st.info("აქ წარმოდგენილია რეკომენდებული კურსები კრედიტქულების ასამაღლებლად.")
-
 elif menu_selection == "🩺 სპეციალობების & კრედიტების მატრიცა":
     st.subheader("🩺 სპეციალობების კვალიფიკაციისა და კრედიტების მატრიცა")
     doctors_data = fetch_doctors()
@@ -642,12 +739,6 @@ elif menu_selection == "📈 ექიმის ისტორიისა დ�
         st.dataframe(pd.read_csv(CREDITS_HISTORY_FILE), use_container_width=True, hide_index=True)
     else:
         st.info("ისტორია ცარიელია.")
-
-elif menu_selection == "ექიმების რეესტრი":
-    st.subheader("📋 ექიმების რეესტრი და მართვა")
-    all_docs = fetch_doctors()
-    if all_docs:
-        st.dataframe(pd.DataFrame(all_docs), use_container_width=True, hide_index=True)
 
 elif menu_selection == "კლინიკები":
     st.subheader("🏥 კლინიკები — რეპორტები")
