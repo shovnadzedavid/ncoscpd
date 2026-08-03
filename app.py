@@ -447,7 +447,7 @@ if st.sidebar.button("🚪 სისტემიდან გასვლა", u
 # =========================================================================
 if menu_selection == "📚 სალექციო პროცესის მართვა":
     st.subheader("📚 სალექციო პროცესის მართვა და აუდიტორიების განრიგი")
-    st.markdown("<p style='color: #94a3b8;'>აუდიტორიების დატვირთულობის ცხრილი და ავტომატური კონფლიქტების პრევენციის მექანიზმი.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #94a3b8;'>აუდიტორიების დატვირთულობის ცხრილი ლექტორების სახელებითა და ავტომატური კონფლიქტების პრევენციით.</p>", unsafe_allow_html=True)
 
     hours_cols = [f"{h:02d}:00" for h in range(9, 19)]
     auditoriums = ["აუდიტორია 1", "აუდიტორია 2", "აუდიტორია 3", "აუდიტორია 4", "აუდიტორია 5"]
@@ -464,26 +464,28 @@ if menu_selection == "📚 სალექციო პროცესის მ
     else:
         df_lectures = pd.DataFrame(columns=["lector", "course", "university", "start_date", "end_date", "auditorium", "start_hour", "end_hour", "weekend_mode", "total_hours"])
 
-    # --- 🗓️ აუდიტორიების განრიგის ცხრილი ---
-    st.markdown("### 📊 აუდიტორიების განრიგი (დატვირთულობის ინდიკატორი)")
+    # --- 🗓️ აუდიტორიების განრიგის ცხრილი (ლექტორის სახელებით და გაზრდილი სიმაღლით) ---
+    st.markdown("### 📊 აუდიტორიების განრიგი (ლექტორების მითითებით)")
     
     matrix_data = []
     for aud in auditoriums:
         row = {"აუდიტორია": aud}
         for h in hours_cols:
-            is_busy = False
+            cell_status = "🟢 თავისუფალია"
             for _, lec in df_lectures.iterrows():
                 if str(lec.get("auditorium")) == aud:
                     s_h = str(lec.get("start_hour", ""))
                     e_h = str(lec.get("end_hour", ""))
                     if s_h and e_h and s_h <= h <= e_h:
-                        is_busy = True
+                        lector = lec.get("lector", "უცნობი")
+                        cell_status = f"🔴 {lector}"
                         break
-            row[h] = "🔴 დაკავებულია" if is_busy else "🟢 თავისუფალია"
+            row[h] = cell_status
         matrix_data.append(row)
         
     df_matrix = pd.DataFrame(matrix_data)
-    st.dataframe(df_matrix, use_container_width=True, hide_index=True, height=280)
+    # სიმაღლის ზრდა (height=380) იმისათვის, რომ სახელები თავისუფლად და სრულად იკითხებოდეს
+    st.dataframe(df_matrix, use_container_width=True, hide_index=True, height=380)
 
     st.markdown("---")
 
