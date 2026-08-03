@@ -363,11 +363,11 @@ if st.sidebar.button("🚪 სისტემიდან გასვლა", u
     st.rerun()
 
 # =========================================================================
-# 📚 სალექციო პროცესის მართვა (შაბათ-კვირის გათვალისწინებით)
+# 📚 სალექციო პროცესის მართვა (კონფლიქტების მართვის სისტემით)
 # =========================================================================
 if menu_selection == "📚 სალექციო პროცესის მართვა":
     st.subheader("📚 სალექციო პროცესის მართვა და აუდიტორიების განრიგი")
-    st.markdown("<p style='color: #94a3b8;'>აუდიტორიების დატვირთულობის ცხრილი და ლექციების დაგეგმვის პანელი შაბათ-კვირის გათვალისწინებით.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #94a3b8;'>აუდიტორიების დატვირთულობის ცხრილი და ავტომატური კონფლიქტების პრევენციის მექანიზმი.</p>", unsafe_allow_html=True)
 
     hours_cols = [f"{h:02d}:00" for h in range(9, 19)]
     auditoriums = ["აუდიტორია 1", "აუდიტორია 2", "აუდიტორია 3", "აუდიტორია 4", "აუდიტორია 5"]
@@ -407,9 +407,9 @@ if menu_selection == "📚 სალექციო პროცესის მ
 
     st.markdown("---")
 
-    # --- 📥 სალექციო რეპორტის ფაილის გატანა (.xlsx ფორმატით) ---
+    # --- 📥 სალექციო რეპორტის ფაილის გატანა ---
     st.markdown("### 📥 ლექციების ჩატარების დეტალური რეპორტი")
-    st.markdown("<p style='color: #94a3b8; font-size: 14px;'>გადმოწერეთ სრული რეპორტი საათებისა და შაბათ-კვირის გათვალისწინებით (.xlsx ფორმატი).</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #94a3b8; font-size: 14px;'>გადმოწერეთ სრული რეპორტი საათებისა და კონტროლის მონაცემებით (.xlsx ფორმატი).</p>", unsafe_allow_html=True)
     
     if not df_lectures.empty:
         output = io.BytesIO()
@@ -451,7 +451,6 @@ if menu_selection == "📚 სალექციო პროცესის მ
         with col_h2:
             end_hour = st.selectbox("⏰ დასასრული საათი:", hours_cols, index=3)
 
-        # 🎯 შაბათ-კვირის ჩართვის Checkbox
         include_weekend = st.checkbox("📅 ტარდება თუ არა ლექცია შაბათ-კვირასაც?")
         
         submit_lecture = st.form_submit_button("🚀 ლექციის დაგეგმვა და განრიგში ასახვა", use_container_width=True)
@@ -461,47 +460,85 @@ if menu_selection == "📚 სალექციო პროცესის მ
                 st.error("⚠️ გთხოვთ, შეავსოთ ლექტორი და კურსის დასახელება!")
             elif start_hour > end_hour:
                 st.error("⚠️ საწყისი საათი არ შეიძლება იყოს დასასრულის საათზე გვიანი!")
+            elif start_date > end_date:
+                st.error("⚠️ კურსის დასაწყისი თარიღი არ შეიძლება იყოს დასასრულის თარიღზე გვიანი!")
             else:
-                # გამოვთვლით დღეების რაოდენობას შაბათ-კვირის გათვალისწინებით
+                # 🛑 ავტომატური კონფლიქტების შემოწმების ლოგიკა
+                conflict_detected = False
+                conflict_message = ""
+
                 d_start = pd.to_datetime(start_date)
                 d_end = pd.to_datetime(end_date)
                 
-                total_calculated_hours = 0
-                current_d = d_start
-                s_idx = hours_cols.index(start_hour)
-                e_idx = hours_cols.index(end_hour)
-                hours_per_day = (e_idx - s_idx) + 1
+                # ვამოწმებთ არსებულ ლექციებთან დამთხვევებს
+                if not df_lectures.empty:
+                    for _, existing_lec in df_lectures.iterrows():
+                        ex_start = pd.to_datetime(existing_lec["start_date"])
+                        ex_end = pd.to_datetime(existing_lec["end_date"])
+                        
+                        # თარიღების კვეთის შემოწმება
+                        dates_overlap = not (d_end < ex_start or d_start > ex_end)
+                        
+                        if dates_overlap:
+                            ex_s_hour = str(existing_lec["start_hour"])
+                            ex_e_hour = str(existing_lec["end_hour"])
+                            
+                            # საათების კვეთის შემოწმება
+                            hours_overlap = not (end_hour < ex_s_hour or start_hour > ex_e_hour)
+                            
+                            if hours_overlap:
+                                # კონტროლი 1: აუდიტორიის კონფლიქტი
+                                if str(existing_lec["auditorium"]) == sel_auditorium:
+                                    conflict_detected = True
+                                    conflict_message = f"🚨 კონფლიქტი: **{sel_auditorium}** უკვე დაჯავშნილია ამ პერიოდში ({ex_s_hour} - {ex_e_hour}) კურსისთვის: „{existing_lec['course']}“!"
+                                    break
+                                
+                                # კონტროლი 2: ლექტორის კონფლიქტი
+                                if str(existing_lec["lector"]).strip().lower() == lector_name.strip().lower():
+                                    conflict_detected = True
+                                    conflict_message = f"🚨 კონფლიქტი: ლექტორი **{lector_name}** უკვე დაკავებულია ამავე დროს ({ex_s_hour} - {ex_e_hour}) სხვა კურსზე: „{existing_lec['course']}“!"
+                                    break
 
-                while current_d <= d_end:
-                    weekday = current_d.weekday() # 0-4 არის ორშაბათი-პარასკევი, 5-6 შაბათ-კვირა
-                    if weekday < 5:
-                        total_calculated_hours += hours_per_day
-                    elif include_weekend:
-                        total_calculated_hours += hours_per_day
-                    current_d += timedelta(days=1)
+                if conflict_detected:
+                    st.error(conflict_message)
+                else:
+                    # საათების გამოთვლა
+                    total_calculated_hours = 0
+                    current_d = d_start
+                    s_idx = hours_cols.index(start_hour)
+                    e_idx = hours_cols.index(end_hour)
+                    hours_per_day = (e_idx - s_idx) + 1
 
-                weekend_str = "კი" if include_weekend else "არა"
+                    while current_d <= d_end:
+                        weekday = current_d.weekday()
+                        if weekday < 5:
+                            total_calculated_hours += hours_per_day
+                        elif include_weekend:
+                            total_calculated_hours += hours_per_day
+                        current_d += timedelta(days=1)
 
-                new_lec_record = {
-                    "lector": lector_name.strip(),
-                    "course": course_name.strip(),
-                    "university": university_name.strip(),
-                    "start_date": str(start_date),
-                    "end_date": str(end_date),
-                    "auditorium": sel_auditorium,
-                    "start_hour": start_hour,
-                    "end_hour": end_hour,
-                    "include_weekend": weekend_str,
-                    "total_hours": total_calculated_hours
-                }
-                try:
-                    df_new = pd.concat([df_lectures, pd.DataFrame([new_lec_record])], ignore_index=True)
-                    df_new.to_csv(LECTURES_FILE, index=False, encoding='utf-8-sig')
-                    log_action(st.session_state.current_user, "ლექციის დაგეგმვა", lector_name.strip(), f"კურსი: {course_name}, შაბათ-კვირა: {weekend_str}, საათები: {total_calculated_hours}სთ")
-                    st.success(f"✅ ლექცია წარმატებით დაიგეგმა! შაბათ-კვირის გათვალისწინებით ჯამური საათები: **{total_calculated_hours} სთ**")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"შეცდომა შენახვისას: {e}")
+                    weekend_str = "კი" if include_weekend else "არა"
+
+                    new_lec_record = {
+                        "lector": lector_name.strip(),
+                        "course": course_name.strip(),
+                        "university": university_name.strip(),
+                        "start_date": str(start_date),
+                        "end_date": str(end_date),
+                        "auditorium": sel_auditorium,
+                        "start_hour": start_hour,
+                        "end_hour": end_hour,
+                        "include_weekend": weekend_str,
+                        "total_hours": total_calculated_hours
+                    }
+                    try:
+                        df_new = pd.concat([df_lectures, pd.DataFrame([new_lec_record])], ignore_index=True)
+                        df_new.to_csv(LECTURES_FILE, index=False, encoding='utf-8-sig')
+                        log_action(st.session_state.current_user, "ლექციის დაგეგმვა", lector_name.strip(), f"კურსი: {course_name}, აუდიტორია: {sel_auditorium}, საათები: {total_calculated_hours}სთ")
+                        st.success(f"✅ ლექცია წარმატებით დაიგეგმა! ჯამური საათები: **{total_calculated_hours} სთ**")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"შეცდომა შენახვისას: {e}")
 
 # =========================================================================
 # მთავარი დაფა & დანარჩენი ძველი სექციები
