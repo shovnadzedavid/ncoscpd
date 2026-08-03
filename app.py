@@ -179,6 +179,62 @@ def extract_text_from_pdf(uploaded_file):
     except Exception:
         return ""
 
+def generate_lectures_pdf_report(lectures_list, manager_name):
+    if not REPORTLAB_AVAILABLE:
+        return None
+    try:
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=25, leftMargin=25, topMargin=30, bottomMargin=30)
+        elements = []
+        styles = getSampleStyleSheet()
+        
+        title_style = ParagraphStyle('GeorgianTitle', parent=styles['Heading1'], fontName='DejaVuSans', fontSize=16, textColor=colors.HexColor("#1e1b4b"), spaceAfter=10, alignment=1)
+        subtitle_style = ParagraphStyle('GeorgianSubTitle', parent=styles['Normal'], fontName='DejaVuSans', fontSize=9, textColor=colors.HexColor("#475569"), spaceAfter=20, alignment=1)
+        cell_style = ParagraphStyle('GeorgianCell', parent=styles['Normal'], fontName='DejaVuSans', fontSize=8, alignment=1)
+        header_cell_style = ParagraphStyle('GeorgianHeaderCell', parent=styles['Normal'], fontName='DejaVuSans', fontSize=8, textColor=colors.whitesmoke, alignment=1)
+
+        elements.append(Paragraph(f"<b>NCOS CPD/Academic Programs Portal — Lectures Schedule Report</b>", title_style))
+        elements.append(Paragraph(f"<b>გენერირებულია:</b> {datetime.now().strftime('%Y-%m-%d %H:%M')} | <b>პასუხისმგებელი:</b> {manager_name}", subtitle_style))
+        elements.append(Spacer(1, 10))
+        
+        table_data = [[
+            Paragraph("<b>№</b>", header_cell_style),
+            Paragraph("<b>ლექტორი</b>", header_cell_style),
+            Paragraph("<b>კურსი</b>", header_cell_style),
+            Paragraph("<b>უნივერსიტეტი</b>", header_cell_style),
+            Paragraph("<b>აუდიტორია</b>", header_cell_style),
+            Paragraph("<b>დრო / რეჟიმი</b>", header_cell_style),
+            Paragraph("<b>საათები</b>", header_cell_style)
+        ]]
+        
+        for idx, lec in enumerate(lectures_list, 1):
+            time_info = f"{lec.get('start_hour')} - {lec.get('end_hour')}<br/>({lec.get('weekend_mode')})"
+            table_data.append([
+                Paragraph(str(idx), cell_style),
+                Paragraph(str(lec.get('lector', '')), cell_style),
+                Paragraph(str(lec.get('course', '')), cell_style),
+                Paragraph(str(lec.get('university', '')), cell_style),
+                Paragraph(str(lec.get('auditorium', '')), cell_style),
+                Paragraph(time_info, cell_style),
+                Paragraph(str(lec.get('total_hours', '')), cell_style)
+            ])
+            
+        t = Table(table_data, colWidths=[20, 110, 120, 90, 75, 80, 45])
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#4f46e5")),
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('BOTTOMPADDING', (0,0), (-1,0), 6),
+            ('BACKGROUND', (0,1), (-1,-1), colors.HexColor("#f8fafc")),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#cbd5e1")),
+        ]))
+        elements.append(t)
+        doc.build(elements)
+        buffer.seek(0)
+        return buffer.getvalue()
+    except Exception:
+        return None
+
 # --- ავტორიზაცია, სესია და Screen Lock მექანიზმი ---
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
@@ -269,7 +325,7 @@ if st.session_state.screen_locked:
     render_login(is_lock_screen=True)
     st.stop()
 
-# --- 💎 ULTRA-PREMIUM UI / CSS / ANIMATIONS დიზაინი (აღდგენილი ძველი სტილი) ---
+# --- 💎 ULTRA-PREMIUM UI / CSS / ANIMATIONS დიზაინი ---
 st.markdown("""
     <style>
         .stApp {
@@ -401,12 +457,12 @@ if menu_selection == "📚 სალექციო პროცესის მ
             df_lectures = pd.read_csv(LECTURES_FILE)
             if "total_hours" not in df_lectures.columns:
                 df_lectures["total_hours"] = 1
-            if "include_weekend" not in df_lectures.columns:
-                df_lectures["include_weekend"] = "არა"
+            if "weekend_mode" not in df_lectures.columns:
+                df_lectures["weekend_mode"] = "არცერთი"
         except:
-            df_lectures = pd.DataFrame(columns=["lector", "course", "university", "start_date", "end_date", "auditorium", "start_hour", "end_hour", "include_weekend", "total_hours"])
+            df_lectures = pd.DataFrame(columns=["lector", "course", "university", "start_date", "end_date", "auditorium", "start_hour", "end_hour", "weekend_mode", "total_hours"])
     else:
-        df_lectures = pd.DataFrame(columns=["lector", "course", "university", "start_date", "end_date", "auditorium", "start_hour", "end_hour", "include_weekend", "total_hours"])
+        df_lectures = pd.DataFrame(columns=["lector", "course", "university", "start_date", "end_date", "auditorium", "start_hour", "end_hour", "weekend_mode", "total_hours"])
 
     # --- 🗓️ აუდიტორიების განრიგის ცხრილი ---
     st.markdown("### 📊 აუდიტორიების განრიგი (დატვირთულობის ინდიკატორი)")
@@ -431,23 +487,22 @@ if menu_selection == "📚 სალექციო პროცესის მ
 
     st.markdown("---")
 
-    # --- 📥 სალექციო რეპორტის ფაილის გატანა (.xlsx) ---
-    st.markdown("### 📥 ლექციების ჩატარების დეტალური რეპორტი")
-    st.markdown("<p style='color: #94a3b8; font-size: 14px;'>გადმოწერეთ სრული რეპორტი საათებისა და კონტროლის მონაცემებით (Excel .xlsx).</p>", unsafe_allow_html=True)
+    # --- 📥 სალექციო რეპორტის PDF ფაილის გატანა ---
+    st.markdown("### 📥 ლექციების ჩატარების დეტალური რეპორტი (PDF)")
+    st.markdown("<p style='color: #94a3b8; font-size: 14px;'>გადმოწერეთ სრული სალექციო რეპორტი ოფიციალური PDF დოკუმენტის სახით.</p>", unsafe_allow_html=True)
     
     if not df_lectures.empty:
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            df_lectures.to_excel(writer, index=False, sheet_name='Lectures_Report')
-        excel_data = output.getvalue()
-
-        st.download_button(
-            label="📥 დეტალური სალექციო რეპორტის გადმოწერა (Excel .xlsx)",
-            data=excel_data,
-            file_name="Lectures_Detailed_Report.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True
-        )
+        pdf_bytes = generate_lectures_pdf_report(df_lectures.to_dict("records"), st.session_state.current_user)
+        if pdf_bytes:
+            st.download_button(
+                label="📥 დეტალური სალექციო რეპორტის გადმოწერა (PDF)",
+                data=pdf_bytes,
+                file_name="Lectures_Detailed_Report.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
+        else:
+            st.warning("⚠️ PDF გენერაციისას მოხდა შეფერხება. გთხოვთ შეამოწმოთ ReportLab ბიბლიოთეკა.")
     else:
         st.info("ℹ️ დაგეგმილი ლექციები ჯერ არ ფიქსირდება ბაზაში.")
 
@@ -475,7 +530,15 @@ if menu_selection == "📚 სალექციო პროცესის მ
         with col_h2:
             end_hour = st.selectbox("⏰ დასასრული საათი:", hours_cols, index=3)
 
-        include_weekend = st.checkbox("📅 ტარდება თუ არა ლექცია შაბათ-კვირასაც?")
+        # 🎯 შაბათ-კვირის სამი სრული ვარიანტი
+        st.markdown("<p style='font-size: 14px; font-weight: 600; color: #cbd5e1; margin-bottom: 5px;'>📅 შაბათ-კვირის გრაფიკი:</p>", unsafe_allow_html=True)
+        col_w1, col_w2, col_w3 = st.columns(3)
+        with col_w1:
+            sat_only = st.checkbox("მხოლოდ შაბათს")
+        with col_w2:
+            sun_only = st.checkbox("მხოლოდ კვირას")
+        with col_w3:
+            both_weekends = st.checkbox("შაბათსაც და კვირასაც")
         
         submit_lecture = st.form_submit_button("🚀 ლექციის დაგეგმვა და განრიგში ასახვა", use_container_width=True)
         
@@ -519,6 +582,15 @@ if menu_selection == "📚 სალექციო პროცესის მ
                 if conflict_detected:
                     st.error(conflict_message)
                 else:
+                    if both_weekends:
+                        weekend_mode_str = "შაბათი და კვირა"
+                    elif sat_only:
+                        weekend_mode_str = "მხოლოდ შაბათი"
+                    elif sun_only:
+                        weekend_mode_str = "მხოლოდ კვირა"
+                    else:
+                        weekend_mode_str = "არცერთი"
+
                     total_calculated_hours = 0
                     current_d = d_start
                     s_idx = hours_cols.index(start_hour)
@@ -529,11 +601,13 @@ if menu_selection == "📚 სალექციო პროცესის მ
                         weekday = current_d.weekday()
                         if weekday < 5:
                             total_calculated_hours += hours_per_day
-                        elif include_weekend:
-                            total_calculated_hours += hours_per_day
+                        elif weekday == 5:
+                            if sat_only or both_weekends:
+                                total_calculated_hours += hours_per_day
+                        elif weekday == 6:
+                            if sun_only or both_weekends:
+                                total_calculated_hours += hours_per_day
                         current_d += timedelta(days=1)
-
-                    weekend_str = "კი" if include_weekend else "არა"
 
                     new_lec_record = {
                         "lector": lector_name.strip(),
@@ -544,14 +618,14 @@ if menu_selection == "📚 სალექციო პროცესის მ
                         "auditorium": sel_auditorium,
                         "start_hour": start_hour,
                         "end_hour": end_hour,
-                        "include_weekend": weekend_str,
+                        "weekend_mode": weekend_mode_str,
                         "total_hours": total_calculated_hours
                     }
                     try:
                         df_new = pd.concat([df_lectures, pd.DataFrame([new_lec_record])], ignore_index=True)
                         df_new.to_csv(LECTURES_FILE, index=False, encoding='utf-8-sig')
-                        log_action(st.session_state.current_user, "ლექციის დაგეგმვა", lector_name.strip(), f"კურსი: {course_name}, აუდიტორია: {sel_auditorium}, საათები: {total_calculated_hours}სთ")
-                        st.success(f"✅ ლექცია წარმატებით დაიგეგმა! ჯამური საათები: **{total_calculated_hours} სთ**")
+                        log_action(st.session_state.current_user, "ლექციის დაგეგმვა", lector_name.strip(), f"კურსი: {course_name}, რეჟიმი: {weekend_mode_str}, საათები: {total_calculated_hours}სთ")
+                        st.success(f"✅ ლექცია წარმატებით დაიგეგმა! ({weekend_mode_str}) | ჯამური საათები: **{total_calculated_hours} სთ**")
                         st.rerun()
                     except Exception as e:
                         st.error(f"შეცდომა შენახვისას: {e}")
