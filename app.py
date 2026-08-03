@@ -84,8 +84,8 @@ def init_database():
 
         default_pass_hash = hash_password("123")
         default_users = {
-            "laliivanishvili": {"name": "ლალი ივანიშვილი (გენერალური დირექტორი)", "pass": default_pass_hash, "role": "manager"},
-            "nikolozchaduneli": {"name": "ნიკოლოზ ჩადუნელი (კლინიკური დირექტორი)", "pass": default_pass_hash, "role": "manager"},
+            "laliivanishvili": {"name": "ლალი ივანიშვილი (გენერალური დირექტორი)", "pass": default_pass_hash, "role": "director_lali"},
+            "nikolozchaduneli": {"name": "ნიკოლოზ ჩადუნელი (კლინიკური დირექტორი)", "pass": default_pass_hash, "role": "director_nika"},
             "davitshovnadze": {"name": "დავით შოვნაძე", "pass": default_pass_hash, "role": "manager"},
             "doctorportal": {"name": "ექიმთა პორტალი (საერთო)", "pass": default_pass_hash, "role": "doctor"}
         }
@@ -338,14 +338,29 @@ st.markdown(f"""
 
 # --- 🧭 საიდბარი (მენიუ) ---
 st.sidebar.markdown(f"**👤 მომხმარებელი:** {st.session_state.current_user}")
-if st.sidebar.button("🔒 ეკრანის დაბლოკვა (Lock)", use_container_width=True):
+if st.sidebar.button("🔒 ეკრანი დაბლოკვა (Lock)", use_container_width=True):
     st.session_state.screen_locked = True
     st.rerun()
 
 st.sidebar.markdown("---")
 
+# ვამოწმებთ როლს: დირექტორებს (ლალი და ნიკა) ვუმალავთ "სალექციო პროცესის მართვას"
+is_director = st.session_state.current_role in ["director_lali", "director_nika"]
+
 if st.session_state.current_role == "doctor":
     menu_options = ["👤 ექიმის პირადი პორტალი", "📚 აკრედიტებული კურსები"]
+elif is_director:
+    menu_options = [
+        "მთავარი დაფა & ანალიტიკა", 
+        "ექიმების რეესტრი", 
+        "🩺 სპეციალობების & კრედიტების მატრიცა",
+        "🚨 კლინიკური რისკ-ჯგუფების ოპერაციული მენეჯმენტი",
+        "📈 ექიმის ისტორიისა და დინამიკის ზედამხედველობა",
+        "კლინიკები", 
+        "აუდიტის ჟურნალი", 
+        "სეთინგები და პაროლები",
+        "📄 OCR სერთიფიკატების სკანერი"
+    ]
 else:
     menu_options = [
         "მთავარი დაფა & ანალიტიკა", 
@@ -373,7 +388,7 @@ if st.sidebar.button("🚪 სისტემიდან გასვლა", u
     st.rerun()
 
 # =========================================================================
-# 📚 სალექციო პროცესის მართვა
+# 📚 სალექციო პროცესის მართვა (მხოლოდ უფლებამოსილი მენეჯერებისთვის)
 # =========================================================================
 if menu_selection == "📚 სალექციო პროცესის მართვა":
     st.subheader("📚 სალექციო პროცესის მართვა და აუდიტორიების განრიგი")
@@ -849,7 +864,7 @@ elif menu_selection == "კლინიკები":
     st.subheader("🏥 კლინიკები — რეპორტები")
     sel_cl = st.selectbox("აირჩიეთ კლინიკა:", CLINICS_LIST)
     all_doctors = fetch_doctors()
-    filtered_doctors = [d for d in all_doctors if d.get("clinic") == sel_cl]
+    filtered_doctors = [d for d in all_doctors if d.get("clinic"] == sel_cl]
     if filtered_doctors:
         st.dataframe(pd.DataFrame(filtered_doctors), use_container_width=True, hide_index=True)
 
