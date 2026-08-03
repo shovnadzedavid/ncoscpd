@@ -345,7 +345,7 @@ if st.session_state.screen_locked:
     render_login(is_lock_screen=True)
     st.stop()
 
-# --- 💎 UI / CSS დიზაინი ---
+# --- 💎 ULTRA-PREMIUM UI / CSS / ANIMATIONS დიზაინი (ცენტრალური & საინტერესო) ---
 st.markdown("""
     <style>
         .stApp {
@@ -367,6 +367,12 @@ st.markdown("""
             box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(99, 102, 241, 0.15);
             backdrop-filter: blur(30px); width: 100%; margin: 10px auto 20px auto; position: relative; overflow: hidden; text-align: center;
         }
+        .login-card-container::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+            background: linear-gradient(90deg, #4f46e5, #6366f1, #a855f7); box-shadow: 0 0 15px #6366f1;
+        }
+        .login-title { color: #ffffff; text-align: center; font-size: 24px; font-weight: 800; margin-bottom: 8px; }
+        .login-subtitle { color: #94a3b8; text-align: center; font-size: 14px; margin-bottom: 0px; line-height: 1.4; }
         .board-card {
             background: linear-gradient(145deg, rgba(30, 41, 59, 0.5) 0%, rgba(15, 23, 42, 0.7) 100%);
             border: 1px solid rgba(129, 140, 248, 0.2); padding: 30px; border-radius: 22px;
@@ -375,6 +381,14 @@ st.markdown("""
         section[data-testid="stSidebar"] {
             background: linear-gradient(180deg, #030712 0%, #070d1d 50%, #0f172a 100%) !important;
             border-right: 1px solid rgba(129, 140, 248, 0.2); padding-top: 20px;
+        }
+        section[data-testid="stSidebar"] .stRadio label {
+            background: rgba(30, 41, 59, 0.4); border-radius: 14px; padding: 12px 16px !important;
+            border: 1px solid rgba(129, 140, 248, 0.15); width: 100% !important; display: flex !important; align-items: center !important; cursor: pointer; transition: all 0.3s ease;
+        }
+        section[data-testid="stSidebar"] .stRadio label:hover {
+            background: linear-gradient(135deg, rgba(79, 70, 229, 0.3) 0%, rgba(99, 102, 241, 0.4) 100%);
+            border-color: rgba(129, 140, 248, 0.6); transform: translateX(6px);
         }
         .stButton > button {
             border-radius: 14px !important; font-weight: 700 !important; font-size: 16px !important; padding: 13px 26px !important;
@@ -448,7 +462,7 @@ if st.sidebar.button("🚪 სისტემიდან გასვლა", u
     st.rerun()
 
 # =========================================================================
-# 📊 მთავარი დაფა & ანალიტიკა (სუფთა ვერსია)
+# 📊 მთავარი დაფა & ანალიტიკა (სტაბილური და დახვეწილი ვიზუალით)
 # =========================================================================
 if menu_selection == "მთავარი დაფა & ანალიტიკა":
     st.subheader("📊 მთავარი დაფა — ანალიტიკა და ვიზუალური დიაგრამები")
