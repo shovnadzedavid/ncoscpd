@@ -269,7 +269,7 @@ if st.session_state.screen_locked:
     render_login(is_lock_screen=True)
     st.stop()
 
-# --- 💎 UI / CSS დიზაინი ---
+# --- 💎 ULTRA-PREMIUM UI / CSS / ANIMATIONS დიზაინი (აღდგენილი ძველი სტილი) ---
 st.markdown("""
     <style>
         .stApp {
@@ -291,6 +291,12 @@ st.markdown("""
             box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(99, 102, 241, 0.15);
             backdrop-filter: blur(30px); width: 100%; margin: 10px auto 20px auto; position: relative; overflow: hidden; text-align: center;
         }
+        .login-card-container::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+            background: linear-gradient(90deg, #4f46e5, #6366f1, #a855f7); box-shadow: 0 0 15px #6366f1;
+        }
+        .login-title { color: #ffffff; text-align: center; font-size: 24px; font-weight: 800; margin-bottom: 8px; }
+        .login-subtitle { color: #94a3b8; text-align: center; font-size: 14px; margin-bottom: 0px; line-height: 1.4; }
         .board-card {
             background: linear-gradient(145deg, rgba(30, 41, 59, 0.5) 0%, rgba(15, 23, 42, 0.7) 100%);
             border: 1px solid rgba(129, 140, 248, 0.2); padding: 30px; border-radius: 22px;
@@ -299,6 +305,14 @@ st.markdown("""
         section[data-testid="stSidebar"] {
             background: linear-gradient(180deg, #030712 0%, #070d1d 50%, #0f172a 100%) !important;
             border-right: 1px solid rgba(129, 140, 248, 0.2); padding-top: 20px;
+        }
+        section[data-testid="stSidebar"] .stRadio label {
+            background: rgba(30, 41, 59, 0.4); border-radius: 14px; padding: 12px 16px !important;
+            border: 1px solid rgba(129, 140, 248, 0.15); width: 100% !important; display: flex !important; align-items: center !important; cursor: pointer; transition: all 0.3s ease;
+        }
+        section[data-testid="stSidebar"] .stRadio label:hover {
+            background: linear-gradient(135deg, rgba(79, 70, 229, 0.3) 0%, rgba(99, 102, 241, 0.4) 100%);
+            border-color: rgba(129, 140, 248, 0.6); transform: translateX(6px);
         }
         .stButton > button {
             border-radius: 14px !important; font-weight: 700 !important; font-size: 16px !important; padding: 13px 26px !important;
@@ -310,6 +324,16 @@ st.markdown("""
         }
     </style>
 """, unsafe_allow_html=True)
+
+# --- 🌟 გლობალური Alert ---
+if os.path.exists(ALERTS_FILE):
+    try:
+        df_alerts = pd.read_csv(ALERTS_FILE)
+        if not df_alerts.empty:
+            latest_alert = df_alerts.iloc[-1]["alert_text"]
+            st.error(f"🚨 **ოფიციალური განგაში / შეტყობინება მენეჯმენტიდან:** {latest_alert}")
+    except:
+        pass
 
 # --- 🌟 ზედა ჰედერი ---
 st.markdown(f"""
@@ -363,7 +387,7 @@ if st.sidebar.button("🚪 სისტემიდან გასვლა", u
     st.rerun()
 
 # =========================================================================
-# 📚 სალექციო პროცესის მართვა (კონფლიქტების მართვის სისტემით)
+# 📚 სალექციო პროცესის მართვა
 # =========================================================================
 if menu_selection == "📚 სალექციო პროცესის მართვა":
     st.subheader("📚 სალექციო პროცესის მართვა და აუდიტორიების განრიგი")
@@ -407,9 +431,9 @@ if menu_selection == "📚 სალექციო პროცესის მ
 
     st.markdown("---")
 
-    # --- 📥 სალექციო რეპორტის ფაილის გატანა ---
+    # --- 📥 სალექციო რეპორტის ფაილის გატანა (.xlsx) ---
     st.markdown("### 📥 ლექციების ჩატარების დეტალური რეპორტი")
-    st.markdown("<p style='color: #94a3b8; font-size: 14px;'>გადმოწერეთ სრული რეპორტი საათებისა და კონტროლის მონაცემებით (.xlsx ფორმატი).</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #94a3b8; font-size: 14px;'>გადმოწერეთ სრული რეპორტი საათებისა და კონტროლის მონაცემებით (Excel .xlsx).</p>", unsafe_allow_html=True)
     
     if not df_lectures.empty:
         output = io.BytesIO()
@@ -463,37 +487,30 @@ if menu_selection == "📚 სალექციო პროცესის მ
             elif start_date > end_date:
                 st.error("⚠️ კურსის დასაწყისი თარიღი არ შეიძლება იყოს დასასრულის თარიღზე გვიანი!")
             else:
-                # 🛑 ავტომატური კონფლიქტების შემოწმების ლოგიკა
                 conflict_detected = False
                 conflict_message = ""
 
                 d_start = pd.to_datetime(start_date)
                 d_end = pd.to_datetime(end_date)
                 
-                # ვამოწმებთ არსებულ ლექციებთან დამთხვევებს
                 if not df_lectures.empty:
                     for _, existing_lec in df_lectures.iterrows():
                         ex_start = pd.to_datetime(existing_lec["start_date"])
                         ex_end = pd.to_datetime(existing_lec["end_date"])
                         
-                        # თარიღების კვეთის შემოწმება
                         dates_overlap = not (d_end < ex_start or d_start > ex_end)
                         
                         if dates_overlap:
                             ex_s_hour = str(existing_lec["start_hour"])
                             ex_e_hour = str(existing_lec["end_hour"])
-                            
-                            # საათების კვეთის შემოწმება
                             hours_overlap = not (end_hour < ex_s_hour or start_hour > ex_e_hour)
                             
                             if hours_overlap:
-                                # კონტროლი 1: აუდიტორიის კონფლიქტი
                                 if str(existing_lec["auditorium"]) == sel_auditorium:
                                     conflict_detected = True
                                     conflict_message = f"🚨 კონფლიქტი: **{sel_auditorium}** უკვე დაჯავშნილია ამ პერიოდში ({ex_s_hour} - {ex_e_hour}) კურსისთვის: „{existing_lec['course']}“!"
                                     break
                                 
-                                # კონტროლი 2: ლექტორის კონფლიქტი
                                 if str(existing_lec["lector"]).strip().lower() == lector_name.strip().lower():
                                     conflict_detected = True
                                     conflict_message = f"🚨 კონფლიქტი: ლექტორი **{lector_name}** უკვე დაკავებულია ამავე დროს ({ex_s_hour} - {ex_e_hour}) სხვა კურსზე: „{existing_lec['course']}“!"
@@ -502,7 +519,6 @@ if menu_selection == "📚 სალექციო პროცესის მ
                 if conflict_detected:
                     st.error(conflict_message)
                 else:
-                    # საათების გამოთვლა
                     total_calculated_hours = 0
                     current_d = d_start
                     s_idx = hours_cols.index(start_hour)
