@@ -338,7 +338,7 @@ st.markdown(f"""
 
 # --- 🧭 საიდბარი (მენიუ) ---
 st.sidebar.markdown(f"**👤 მომხმარებელი:** {st.session_state.current_user}")
-if st.sidebar.button("🔒 ეკრანის დაბლოკვა (Lock)", use_container_width=True):
+if st.sidebar.button("🔒 ეკრანი დაბლოკვა (Lock)", use_container_width=True):
     st.session_state.screen_locked = True
     st.rerun()
 
@@ -361,7 +361,6 @@ elif is_director:
         "📄 OCR სერთიფიკატების სკანერი"
     ]
 else:
-    # დავით შოვნაძისთვის და სხვა მენეჯერებისთვის სალექციო პროცესის მართვა სრულად ხელმისაწვდომია
     menu_options = [
         "მთავარი დაფა & ანალიტიკა", 
         "📚 სალექციო პროცესის მართვა",
@@ -388,14 +387,15 @@ if st.sidebar.button("🚪 სისტემიდან გასვლა", u
     st.rerun()
 
 # =========================================================================
-# 📚 სალექციო პროცესის მართვა (დავით შოვნაძისთვის და მენეჯერებისთვის)
+# 📚 სალექციო პროცესის მართვა
 # =========================================================================
 if menu_selection == "📚 სალექციო პროცესის მართვა":
-    col_lec_t, col_lec_b = st.columns([10, 1])
-    with col_lec_t:
+    col_top, col_btn = st.columns([11, 1])
+    with col_top:
         st.subheader("📚 სალექციო პროცესის მართვა და აუდიტორიების განრიგი")
-    with col_lec_b:
-        if st.button("🔄", key="ref_lectures", help="მონაცემების განახლება"):
+    with col_btn:
+        st.markdown("<div style='margin-top: 5px;'></div>", unsafe_allow_html=True)
+        if st.button("🔄", key="ref_lectures", help="განახლება"):
             st.cache_data.clear()
             st.rerun()
 
@@ -471,11 +471,12 @@ if menu_selection == "📚 სალექციო პროცესის მ
 # 📋 ექიმების რეესტრი
 # =========================================================================
 elif menu_selection == "ექიმების რეესტრი":
-    col_reg_t, col_reg_b = st.columns([10, 1])
-    with col_reg_t:
+    col_top, col_btn = st.columns([11, 1])
+    with col_top:
         st.subheader("📋 ექიმების რეესტრი, რეგისტრაცია და მონაცემთა მართვა")
-    with col_reg_b:
-        if st.button("🔄", key="ref_doc_reg", help="მონაცემების განახლება"):
+    with col_btn:
+        st.markdown("<div style='margin-top: 5px;'></div>", unsafe_allow_html=True)
+        if st.button("🔄", key="ref_doc_reg", help="განახლება"):
             st.cache_data.clear()
             st.rerun()
 
@@ -679,11 +680,12 @@ elif menu_selection == "ექიმების რეესტრი":
 # მთავარი დაფა & დირექტორთა / მენეჯერთა გაფართოებული ანალიტიკა
 # =========================================================================
 elif menu_selection == "მთავარი დაფა & ანალიტიკა":
-    col_dash_t, col_dash_b = st.columns([10, 1])
-    with col_dash_t:
+    col_top, col_btn = st.columns([11, 1])
+    with col_top:
         st.subheader("📊 გენერალური მენეჯმენტისა და დირექციის ანალიტიკური დაფა")
-    with col_dash_b:
-        if st.button("🔄", key="ref_dash_top", help="მონაცემების განახლება"):
+    with col_btn:
+        st.markdown("<div style='margin-top: 5px;'></div>", unsafe_allow_html=True)
+        if st.button("🔄", key="ref_dash_top", help="განახლება"):
             st.cache_data.clear()
             st.rerun()
 
@@ -722,11 +724,12 @@ elif menu_selection == "მთავარი დაფა & ანალიტ�
 
     st.markdown("---")
     
-    col_audit_title, col_audit_btn = st.columns([10, 1])
+    col_audit_title, col_audit_btn = st.columns([11, 1])
     with col_audit_title:
         st.markdown("### 📜 ბოლო განახლებები & აუდიტის ცვლილებები სისტემაში")
     with col_audit_btn:
-        if st.button("🔄", key="ref_audit_inline", help="მონაცემების განახლება"):
+        st.markdown("<div style='margin-top: 5px;'></div>", unsafe_allow_html=True)
+        if st.button("🔄", key="ref_audit_inline", help="განახლება"):
             st.rerun()
 
     if os.path.exists(LOG_FILE):
@@ -754,11 +757,12 @@ elif menu_selection == "👤 ექიმის პირადი პორტ�
             c3.metric("ლიცენზიის ვადა", my_profile["expiry_date"])
 
 elif menu_selection == "🩺 სპეციალობების & კრედიტების მატრიცა":
-    col_mat_t, col_mat_b = st.columns([10, 1])
-    with col_mat_t:
+    col_top, col_btn = st.columns([11, 1])
+    with col_top:
         st.subheader("🩺 სპეციალობების კვალიფიკაციისა და კრედიტების მატრიცა")
-    with col_mat_b:
-        if st.button("🔄", key="ref_mat", help="მონაცემების განახლება"):
+    with col_btn:
+        st.markdown("<div style='margin-top: 5px;'></div>", unsafe_allow_html=True)
+        if st.button("🔄", key="ref_mat", help="განახლება"):
             st.cache_data.clear()
             st.rerun()
 
@@ -766,13 +770,16 @@ elif menu_selection == "🩺 სპეციალობების & კრე
     if doctors_data:
         df_spec = pd.DataFrame(doctors_data).groupby("specialty").agg(ექიმების_რაოდენობა=('name', 'count'), საშუალო_კრედიტი=('credits', 'mean')).reset_index()
         st.dataframe(df_spec, use_container_width=True, hide_index=True)
+    else:
+        st.info("ℹ️ მონაცემები არ მოიძებნა.")
 
 elif menu_selection == "🚨 კლინიკური რისკ-ჯგუფების ოპერაციული მენეჯმენტი":
-    col_risk_t, col_risk_b = st.columns([10, 1])
-    with col_risk_t:
+    col_top, col_btn = st.columns([11, 1])
+    with col_top:
         st.subheader("🚨 კლინიკური რისკ-ჯგუფების ოპერაციული მენეჯმენტი")
-    with col_risk_b:
-        if st.button("🔄", key="ref_risk", help="მონაცემების განახლება"):
+    with col_btn:
+        st.markdown("<div style='margin-top: 5px;'></div>", unsafe_allow_html=True)
+        if st.button("🔄", key="ref_risk", help="განახლება"):
             st.cache_data.clear()
             st.rerun()
 
@@ -780,20 +787,31 @@ elif menu_selection == "🚨 კლინიკური რისკ-ჯგუ�
     if doctors_data:
         df_risk_filtered = pd.DataFrame(doctors_data)[pd.DataFrame(doctors_data)["credits"] < 30]
         st.dataframe(df_risk_filtered, use_container_width=True, hide_index=True)
+    else:
+        st.info("ℹ️ მონაცემები არ მოიძებნა.")
 
 elif menu_selection == "📈 ექიმის ისტორიისა და დინამიკის ზედამხედველობა":
-    st.subheader("📈 ექიმის კრედიტგროვების ისტორია")
+    col_top, col_btn = st.columns([11, 1])
+    with col_top:
+        st.subheader("📈 ექიმის კრედიტგროვების ისტორია")
+    with col_btn:
+        st.markdown("<div style='margin-top: 5px;'></div>", unsafe_allow_html=True)
+        if st.button("🔄", key="ref_history", help="განახლება"):
+            st.cache_data.clear()
+            st.rerun()
+
     if os.path.exists(CREDITS_HISTORY_FILE):
         st.dataframe(pd.read_csv(CREDITS_HISTORY_FILE), use_container_width=True, hide_index=True)
     else:
         st.info("ისტორია ცარიელია.")
 
 elif menu_selection == "კლინიკები":
-    col_clin_t, col_clin_b = st.columns([10, 1])
-    with col_clin_t:
+    col_top, col_btn = st.columns([11, 1])
+    with col_top:
         st.subheader("🏥 კლინიკები — რეპორტები")
-    with col_clin_b:
-        if st.button("🔄", key="ref_clin", help="მონაცემების განახლება"):
+    with col_btn:
+        st.markdown("<div style='margin-top: 5px;'></div>", unsafe_allow_html=True)
+        if st.button("🔄", key="ref_clin", help="განახლება"):
             st.cache_data.clear()
             st.rerun()
 
@@ -802,17 +820,22 @@ elif menu_selection == "კლინიკები":
     filtered_doctors = [d for d in all_doctors if d.get("clinic") == sel_cl]
     if filtered_doctors:
         st.dataframe(pd.DataFrame(filtered_doctors), use_container_width=True, hide_index=True)
+    else:
+        st.info("ℹ️ ამ კლინიკაში ექიმები არ მოიძებნა.")
 
 elif menu_selection == "აუდიტის ჟურნალი":
-    col_log_t, col_log_b = st.columns([10, 1])
-    with col_log_t:
+    col_top, col_btn = st.columns([11, 1])
+    with col_top:
         st.subheader("📜 უსაფრთხოების აუდიტის ჟურნალი")
-    with col_log_b:
-        if st.button("🔄", key="ref_log", help="მონაცემების განახლება"):
+    with col_btn:
+        st.markdown("<div style='margin-top: 5px;'></div>", unsafe_allow_html=True)
+        if st.button("🔄", key="ref_log", help="განახლება"):
             st.rerun()
 
     if os.path.exists(LOG_FILE):
         st.dataframe(pd.read_csv(LOG_FILE), use_container_width=True, hide_index=True)
+    else:
+        st.info("ℹ️ ჟურნალი ცარიელია.")
 
 elif menu_selection == "სეთინგები და პაროლები":
     st.subheader("⚙️ სეთინგები და Backup")
