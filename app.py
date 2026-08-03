@@ -162,7 +162,7 @@ def extract_text_from_pdf(uploaded_file):
     except Exception as e:
         return f"შეცდომა: {e}"
 
-# --- ავტორიზაცია, სესია და Screen Lock მექანიზმი ---
+# --- ავტორიზაცია, სესია და Persistent Login მექანიზმი ---
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "screen_locked" not in st.session_state:
@@ -176,12 +176,20 @@ if "login_time" not in st.session_state:
 if "active_view_date" not in st.session_state:
     st.session_state.active_view_date = datetime.today().date()
 
+query_params = st.query_params
+if not st.session_state.logged_in and "auth_user" in query_params and "auth_role" in query_params:
+    st.session_state.logged_in = True
+    st.session_state.current_user = query_params["auth_user"]
+    st.session_state.current_role = query_params["auth_role"]
+    st.session_state.login_time = datetime.now()
+
 if st.session_state.logged_in and st.session_state.login_time:
-    if datetime.now() - st.session_state.login_time > timedelta(minutes=15):
+    if datetime.now() - st.session_state.login_time > timedelta(minutes=30):
         st.session_state.logged_in = False
         st.session_state.screen_locked = False
         st.session_state.current_user = None
-        st.warning("⏱️ უსაფრთხოების მიზნით 15-წუთიანი უმოქმედობის სესიის ვადა ამოიწურა. გთხოვთ გაიაროთ ავტორიზაცია თავიდან.")
+        st.query_params.clear()
+        st.warning("⏱️ უსაფრთხოების მიზნით 30-წუთიანი უმოქმედობის სესიის ვადა ამოიწურა. გთხოვთ გაიაროთ ავტორიზაცია თავიდან.")
         st.rerun()
 
 def render_login(is_lock_screen=False):
@@ -239,6 +247,8 @@ def render_login(is_lock_screen=False):
                             st.session_state.current_user = display_name
                             st.session_state.current_role = user_role
                             st.session_state.login_time = datetime.now()
+                            st.query_params["auth_user"] = display_name
+                            st.query_params["auth_role"] = user_role
                             st.success("✅ ავტორიზაცია წარმატებულია!")
                             st.rerun()
                         else:
@@ -359,6 +369,7 @@ if st.sidebar.button("🚪 სისტემიდან გასვლა", u
     st.session_state.current_user = None
     st.session_state.current_role = None
     st.session_state.login_time = None
+    st.query_params.clear()
     st.rerun()
 
 # =========================================================================
@@ -580,7 +591,7 @@ if menu_selection == "📚 სალექციო პროცესის მ
                     try:
                         df_new = pd.concat([df_lectures, pd.DataFrame([new_lec_record])], ignore_index=True)
                         df_new.to_csv(LECTURES_FILE, index=False, encoding='utf-8-sig')
-                        log_action(st.session_state.current_user, "ლექციის დაგეგმვა", lector_name.strip(), f"კურსი: {course_name}, რეჟიმი: {weekend_mode_str}, საათები: {total_calculated_hours}სܬ")
+                        log_action(st.session_state.current_user, "ლექციის დაგეგმვა", lector_name.strip(), f"კურსი: {course_name}, რეჟიმი: {weekend_mode_str}, საათები: {total_calculated_hours}სთ")
                         st.success(f"✅ ლექცია წარმატებით დაიგეგმა! ({weekend_mode_str}) | ჯამური საათები: **{total_calculated_hours} სთ**")
                         st.rerun()
                     except Exception as e:
@@ -595,7 +606,6 @@ elif menu_selection == "ექიმების რეესტრი":
 
     tab_reg, tab_list, tab_import = st.tabs(["➕ ექიმის რეგისტრაცია", "📋 რეესტრი & მართვა / წაშლა", "📁 Excel / CSV იმპორტი"])
 
-    # 1. რეგისტრაციის თაბი
     with tab_reg:
         st.markdown("### 📝 ახალი ექიმის რეგისტრაცია ბაზაში")
         with st.form("doctor_reg_form"):
@@ -630,7 +640,6 @@ elif menu_selection == "ექიმების რეესტრი":
                     except Exception as e:
                         st.error(f"ტექნიკური შეცდომა ბაზაში ჩაწერისას: {e}")
 
-    # 2. რეესტრი და მართვა / წაშლა
     with tab_list:
         st.markdown("### 📋 არსებული ექიმების სია და მართვა")
         docs_list = fetch_doctors()
@@ -659,18 +668,15 @@ elif menu_selection == "ექიმების რეესტრი":
         else:
             st.info("ℹ️ ექიმთა ბაზა ცარიელია.")
 
-    # 3. Excel / CSV იმპორტის თაბი (უნივერსალური და სუპერ-სტაბილური)
     with tab_import:
         st.markdown("### 📁 მონაცემთა მასობრივი იმპორტი (Excel / CSV)")
-        st.markdown("<p style='color: #94a3b8; font-size: 14px;'>ატვირთეთ ფაილი. სავალდებულო სვეტია <code>name</code> (ასევე სურვილისამებრ: <code>specialty</code>, <code>credits</code>, <code>clinic</code>).</p>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #94a3b8; font-size: 14px;'>ატვირთეთ ფაილი. სვეტი შეიძლება ერქვას <code>name</code>, <code>ექიმი</code> ან <code>სახელი</code>.</p>", unsafe_allow_html=True)
         uploaded_file = st.file_uploader("აირჩიეთ CSV ან Excel ფაილი:", type=["csv", "xlsx", "xls"])
         
         if uploaded_file is not None:
             df_imp = None
             try:
-                # ამოვცნოთ ფაილის ტიპი და წავითხოთ უსაფრთხოდ
                 if uploaded_file.name.endswith('.csv'):
-                    # ვცადოთ სხვადასხვა კოდირება და გამყოფი, რომ ათასნაირი ფორმატის CSV უპრობლემოდ გაიხსნას
                     for enc in ['utf-8-sig', 'utf-8', 'cp1251', 'latin1']:
                         try:
                             uploaded_file.seek(0)
@@ -683,14 +689,23 @@ elif menu_selection == "ექიმების რეესტრი":
                     df_imp = pd.read_excel(uploaded_file)
                 
                 if df_imp is not None and not df_imp.empty:
-                    # სვეტების სახელების გაწმენდა (spaces-ების მოხსნა)
-                    df_imp.columns = [str(c).strip().lower() for c in df_imp.columns]
+                    # სვეტების გაწმენდა (ვტოვებთ ორიგინალებსაც და lowercase ვერსიებსაც)
+                    original_columns = list(df_imp.columns)
+                    clean_cols = {str(c).strip().lower(): c for c in original_columns}
                     
                     st.success("✅ ფაილი წარმატებით იკითხა! წინასწარი მონაცემები:")
                     st.dataframe(df_imp.head(), use_container_width=True)
                     
-                    if "name" not in df_imp.columns:
-                        st.error("🚨 შეცდომა: ატვირთულ ფაილში ვერ მოიძებნა სავალდებულო სვეტი სახელით **name**!")
+                    # ვეძებთ სახელის სვეტს სხვადასხვა ვარიაციით (მათ შორის ქართულად)
+                    name_col_key = None
+                    possible_name_keys = ['name', 'fullname', 'ექიმი', 'სახელი', 'სახელი და გვარი', 'doctor', 'fio']
+                    for pk in possible_name_keys:
+                        if pk in clean_cols:
+                            name_col_key = clean_cols[pk]
+                            break
+                    
+                    if not name_col_key:
+                        st.error("🚨 შეცდომა: ატვირთულ ფაილში ვერ მოიძებნა სახელის სვეტი (მაგ: **name**, **ექიმი** ან **სახელი**)!")
                     else:
                         if st.button("🚀 მონაცემების ბაზაში ჩატვირთვა", use_container_width=True):
                             conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
@@ -698,21 +713,33 @@ elif menu_selection == "ექიმების რეესტრი":
                             success_count = 0
                             
                             for _, row in df_imp.iterrows():
-                                name_val = str(row.get("name", "")).strip()
+                                name_val = str(row.get(name_col_key, "")).strip()
                                 if not name_val or name_val.lower() == 'nan':
                                     continue
                                 
-                                spec_val = str(row.get("specialty", "ზოგადი პროფილი"))
-                                if spec_val.lower() == 'nan': spec_val = "ზოგადი პროფილი"
+                                # სპეციალობის ძებნა
+                                spec_val = "ზოგადი პროფილი"
+                                for sk in ['specialty', 'სპეციალობა', 'prof']:
+                                    if sk in clean_cols and pd.notna(row.get(clean_cols[sk])):
+                                        spec_val = str(row.get(clean_cols[sk])).strip()
+                                        break
                                 
-                                try:
-                                    cred_val = int(row.get("credits", 30))
-                                    if pd.isna(cred_val): cred_val = 30
-                                except:
-                                    cred_val = 30
-                                    
-                                clin_val = str(row.get("clinic", CLINICS_LIST[0]))
-                                if clin_val.lower() == 'nan': clin_val = CLINICS_LIST[0]
+                                # კრედიტების ძებნა
+                                cred_val = 30
+                                for ck in ['credits', 'კრედიტები', 'credit', 'ქულა']:
+                                    if ck in clean_cols and pd.notna(row.get(clean_cols[ck])):
+                                        try:
+                                            cred_val = int(row.get(clean_cols[ck]))
+                                        except:
+                                            pass
+                                        break
+                                
+                                # კლინიკის ძებნა
+                                clin_val = CLINICS_LIST[0]
+                                for clk in ['clinic', 'კლინიკა', 'hospital']:
+                                    if clk in clean_cols and pd.notna(row.get(clean_cols[clk])):
+                                        clin_val = str(row.get(clean_cols[clk])).strip()
+                                        break
                                 
                                 cursor.execute("""
                                     INSERT OR REPLACE INTO doctors (name, specialty, credits, clinic, expiry_date, last_updated)
