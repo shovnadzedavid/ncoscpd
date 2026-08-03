@@ -1,5 +1,6 @@
 streamlit
 pandas
-bcrypt
 reportlab
 pypdf
+bcrypt
+openpyxl
