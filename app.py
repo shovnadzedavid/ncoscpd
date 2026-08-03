@@ -646,7 +646,6 @@ elif menu_selection == "ექიმების რეესტრი":
         if docs_list:
             df_docs = pd.DataFrame(docs_list)
             
-            # გვერდებალდება (Pagination - 20 ექიმი თითო გვერდზე)
             PAGE_SIZE = 20
             total_doctors = len(df_docs)
             total_pages = max(1, (total_doctors + PAGE_SIZE - 1) // PAGE_SIZE)
@@ -659,12 +658,14 @@ elif menu_selection == "ექიმების რეესტრი":
             end_idx = start_idx + PAGE_SIZE
             df_page = df_docs.iloc[start_idx:end_idx].copy()
 
-            # ვამატებთ მონიშვნის (Checkbox) სვეტს
-            df_page.insert(0, "მონიშვნა", False)
+            select_all_key = f"select_all_page_{selected_page}"
+            if select_all_key not in st.session_state:
+                st.session_state[select_all_key] = False
+
+            df_page.insert(0, "მონიშვნა", st.session_state[select_all_key])
 
             st.markdown(f"<p style='color: #94a3b8; font-size: 14px;'>ნაჩვენებია ექიმები: {start_idx + 1} - {min(end_idx, total_doctors)} (სულ: {total_doctors})</p>", unsafe_allow_html=True)
 
-            # სარედაქტირო ცხრილი checkbox-ებით
             edited_df = st.data_editor(
                 df_page,
                 column_config={
@@ -683,17 +684,13 @@ elif menu_selection == "ექიმების რეესტრი":
             st.markdown("---")
             col_act1, col_act2 = st.columns(2)
             with col_act1:
-                # ღილაკი მიმდინარე გვერდის ყველა ჩანაწერის მოსანიშნად / ასარჩევად
-                if st.button("☑️ მიმდინარე გვერდის ყველა ექიმის მონიშვნა"):
-                    st.session_state[f"select_all_{selected_page}"] = True
+                if st.button("☑️ ყველას მონიშვნა / მოხსნა"):
+                    st.session_state[select_all_key] = not st.session_state[select_all_key]
                     st.rerun()
             with col_act2:
                 delete_selected_btn = st.button("🗑️ მონიშნული ექიმების წაშლა ბაზიდან", type="secondary", use_container_width=True)
 
             if delete_selected_btn:
-                # ვპოულობთ რომელთა "მონიშვნა" არის True
-                selected_rows = edited_df[edited_df["true"] | edited_df["მონიშვნა"] == True] rescue if needed
-                # უფრო ზუსტი ამოცნობა:
                 selected_names = []
                 for _, row in edited_df.iterrows():
                     if row.get("მონიშვნა") == True:
