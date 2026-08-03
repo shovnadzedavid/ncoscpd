@@ -598,13 +598,13 @@ if menu_selection == "📚 სალექციო პროცესის მ
                         st.error(f"შეცდომა შენახვისას: {e}")
 
 # =========================================================================
-# 📋 ექიმების რეესტრი (გაუმჯობესებული სუპერ-სტაბილური იმპორტით)
+# 📋 ექიმების რეესტრი (Pagination-ით, Checkbox-ებით და მასობრივი წაშლით)
 # =========================================================================
 elif menu_selection == "ექიმების რეესტრი":
     st.subheader("📋 ექიმების რეესტრი, რეგისტრაცია და მონაცემთა მართვა")
-    st.markdown("<p style='color: #94a3b8;'>მართეთ ექიმთა ბაზა, დაამატეთ ახალი კადრები, ატვირთეთ CSV/Excel ფაილები ან შეასწორეთ მონაცემები.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #94a3b8;'>მართეთ ექიმთა ბაზა, დაამატეთ ახალი კადრები, მონიშნეთ checkbox-ებით და წაშალეთ საჭიროებისამებრ (20 ექიმი თითო გვერდზე).</p>", unsafe_allow_html=True)
 
-    tab_reg, tab_list, tab_import = st.tabs(["➕ ექიმის რეგისტრაცია", "📋 რეესტრი & მართვა / წაშლა", "📁 Excel / CSV იმპორტი"])
+    tab_reg, tab_list, tab_import = st.tabs(["➕ ექიმის რეგისტრაცია", "📋 რეესტრი & მართვა / მონიშვნა & წაშლა", "📁 Excel / CSV იმპორტი"])
 
     with tab_reg:
         st.markdown("### 📝 ახალი ექიმის რეგისტრაცია ბაზაში")
@@ -641,30 +641,79 @@ elif menu_selection == "ექიმების რეესტრი":
                         st.error(f"ტექნიკური შეცდომა ბაზაში ჩაწერისას: {e}")
 
     with tab_list:
-        st.markdown("### 📋 არსებული ექიმების სია და მართვა")
+        st.markdown("### 📋 ექიმების სია, მონიშვნა და მართვა")
         docs_list = fetch_doctors()
         if docs_list:
             df_docs = pd.DataFrame(docs_list)
-            st.dataframe(df_docs, use_container_width=True, hide_index=True)
+            
+            # გვერდებალდება (Pagination - 20 ექიმი თითო გვერდზე)
+            PAGE_SIZE = 20
+            total_doctors = len(df_docs)
+            total_pages = max(1, (total_doctors + PAGE_SIZE - 1) // PAGE_SIZE)
+            
+            col_p1, col_p2 = st.columns([2, 2])
+            with col_p1:
+                selected_page = st.selectbox("📄 აირჩიეთ გვერდი:", range(1, total_pages + 1), format_func=lambda x: f"გვერდი {x} (სულ {total_pages})")
+            
+            start_idx = (selected_page - 1) * PAGE_SIZE
+            end_idx = start_idx + PAGE_SIZE
+            df_page = df_docs.iloc[start_idx:end_idx].copy()
+
+            # ვამატებთ მონიშვნის (Checkbox) სვეტს
+            df_page.insert(0, "მონიშვნა", False)
+
+            st.markdown(f"<p style='color: #94a3b8; font-size: 14px;'>ნაჩვენებია ექიმები: {start_idx + 1} - {min(end_idx, total_doctors)} (სულ: {total_doctors})</p>", unsafe_allow_html=True)
+
+            # სარედაქტირო ცხრილი checkbox-ებით
+            edited_df = st.data_editor(
+                df_page,
+                column_config={
+                    "მონიშვნა": st.column_config.CheckboxColumn(
+                        "მონიშვნა",
+                        help="მონიშნეთ ექიმი წაშლისთვის ან მოქმედებისთვის",
+                        default=False,
+                    )
+                },
+                disabled=[c for c in df_page.columns if c != "მონიშვნა"],
+                use_container_width=True,
+                hide_index=True,
+                key=f"doctor_table_page_{selected_page}"
+            )
 
             st.markdown("---")
-            st.markdown("### 🗑️ ექიმის წაშლა ბაზიდან")
-            doc_names = [d["name"] for d in docs_list]
-            selected_doc_to_manage = st.selectbox("აირჩიეთ ექიმი წაშლისთვის:", ["--- აირჩიეთ ---"] + doc_names)
+            col_act1, col_act2 = st.columns(2)
+            with col_act1:
+                # ღილაკი მიმდინარე გვერდის ყველა ჩანაწერის მოსანიშნად / ასარჩევად
+                if st.button("☑️ მიმდინარე გვერდის ყველა ექიმის მონიშვნა"):
+                    st.session_state[f"select_all_{selected_page}"] = True
+                    st.rerun()
+            with col_act2:
+                delete_selected_btn = st.button("🗑️ მონიშნული ექიმების წაშლა ბაზიდან", type="secondary", use_container_width=True)
 
-            if selected_doc_to_manage != "--- აირჩიეთ ---":
-                if st.button("❌ მონიშნული ექიმის წაშლა ბაზიდან", use_container_width=True):
+            if delete_selected_btn:
+                # ვპოულობთ რომელთა "მონიშვნა" არის True
+                selected_rows = edited_df[edited_df["true"] | edited_df["მონიშვნა"] == True] rescue if needed
+                # უფრო ზუსტი ამოცნობა:
+                selected_names = []
+                for _, row in edited_df.iterrows():
+                    if row.get("მონიშვნა") == True:
+                        selected_names.append(row["name"])
+
+                if selected_names:
                     try:
                         conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
                         cursor = conn.cursor()
-                        cursor.execute("DELETE FROM doctors WHERE name = ?", (selected_doc_to_manage,))
+                        for doc_name in selected_names:
+                            cursor.execute("DELETE FROM doctors WHERE name = ?", (doc_name,))
                         conn.commit()
                         conn.close()
-                        log_action(st.session_state.current_user, "ექიმის წაშლა", selected_doc_to_manage, "ექიმი ამოიშალა რეესტრიდან")
-                        st.success(f"✅ ექიმი **{selected_doc_to_manage}** წაიშალა ბაზიდან!")
+                        log_action(st.session_state.current_user, "ექიმების მასობრივი წაშლა", f"{len(selected_names)} ექიმი", "მონიშნული კადრები წაიშალა რეესტრიდან")
+                        st.success(f"✅ წარმატებით წაიშალა **{len(selected_names)}** მონიშნული ექიმი!")
                         st.rerun()
                     except Exception as e:
                         st.error(f"შეცდომა წაშლისას: {e}")
+                else:
+                    st.warning("⚠️ არცერთი ექიმი არ არის მონიშნული დასაშლელად! მონიშნეთ სასურველი სტრიქონები Checkbox-ით.")
         else:
             st.info("ℹ️ ექიმთა ბაზა ცარიელია.")
 
@@ -689,14 +738,12 @@ elif menu_selection == "ექიმების რეესტრი":
                     df_imp = pd.read_excel(uploaded_file)
                 
                 if df_imp is not None and not df_imp.empty:
-                    # სვეტების გაწმენდა (ვტოვებთ ორიგინალებსაც და lowercase ვერსიებსაც)
                     original_columns = list(df_imp.columns)
                     clean_cols = {str(c).strip().lower(): c for c in original_columns}
                     
                     st.success("✅ ფაილი წარმატებით იკითხა! წინასწარი მონაცემები:")
                     st.dataframe(df_imp.head(), use_container_width=True)
                     
-                    # ვეძებთ სახელის სვეტს სხვადასხვა ვარიაციით (მათ შორის ქართულად)
                     name_col_key = None
                     possible_name_keys = ['name', 'fullname', 'ექიმი', 'სახელი', 'სახელი და გვარი', 'doctor', 'fio']
                     for pk in possible_name_keys:
@@ -717,14 +764,12 @@ elif menu_selection == "ექიმების რეესტრი":
                                 if not name_val or name_val.lower() == 'nan':
                                     continue
                                 
-                                # სპეციალობის ძებნა
                                 spec_val = "ზოგადი პროფილი"
                                 for sk in ['specialty', 'სპეციალობა', 'prof']:
                                     if sk in clean_cols and pd.notna(row.get(clean_cols[sk])):
                                         spec_val = str(row.get(clean_cols[sk])).strip()
                                         break
                                 
-                                # კრედიტების ძებნა
                                 cred_val = 30
                                 for ck in ['credits', 'კრედიტები', 'credit', 'ქულა']:
                                     if ck in clean_cols and pd.notna(row.get(clean_cols[ck])):
@@ -734,7 +779,6 @@ elif menu_selection == "ექიმების რეესტრი":
                                             pass
                                         break
                                 
-                                # კლინიკის ძებნა
                                 clin_val = CLINICS_LIST[0]
                                 for clk in ['clinic', 'კლინიკა', 'hospital']:
                                     if clk in clean_cols and pd.notna(row.get(clean_cols[clk])):
