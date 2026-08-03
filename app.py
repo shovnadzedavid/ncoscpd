@@ -77,7 +77,6 @@ def init_database():
             )
         ''')
         
-        # ვამოწმებთ არსებობს თუ არა settings ცხრილი და აქვს თუ არა role სვეტი
         cursor.execute("PRAGMA table_info(settings)")
         columns = [col[1] for col in cursor.fetchall()]
         
@@ -91,7 +90,6 @@ def init_database():
                 )
             ''')
         elif 'role' not in columns:
-            # თუ ძველი ცხრილია და role სვეტი აკლია, უსაფრთხოდ განვანახლებთ
             cursor.execute("DROP TABLE settings")
             cursor.execute('''
                 CREATE TABLE settings (
@@ -287,7 +285,6 @@ def render_login(is_lock_screen=False):
     title_text = "🔒 ეკრანი დაბლოკილია" if is_lock_screen else "NCOS CPD/Academic Programs Portal"
     subtitle_text = f"მენეჯერი: {st.session_state.current_user} (შეიყვანეთ პაროლი გასახსნელად)" if is_lock_screen else "სამედიცინო პერსონალისა და კრედიტების მართვის სივრცე"
     
-    # სრულიად ცენტრალიზებული ბლოკი ლოგინის და პაროლის ველების თავზე
     col_l1, col_l2, col_l3 = st.columns([1, 1.6, 1])
     with col_l2:
         st.markdown(f"""
@@ -420,6 +417,16 @@ st.markdown("""
         }
     </style>
 """, unsafe_allow_html=True)
+
+# --- 🌟 გლობალური Alert (განგაშის) შემოწმება და ჩვენება ყველა მომხმარებლისთვის ---
+if os.path.exists(ALERTS_FILE):
+    try:
+        df_alerts = pd.read_csv(ALERTS_FILE)
+        if not df_alerts.empty:
+            latest_alert = df_alerts.iloc[-1]["alert_text"]
+            st.error(f"🚨 **ოფიციალური განგაში / შეტყობინება მენეჯმენტიდან:** {latest_alert}")
+    except:
+        pass
 
 # --- 🌟 ზედა ჰედერი ---
 st.markdown(f"""
@@ -643,6 +650,38 @@ elif menu_selection == "მთავარი დაფა & ანალიტ�
     col_2.metric("ჩართული კლინიკური ცენტრები", len(CLINICS_LIST))
     col_3.metric("ექიმები (<30 კრედიტით)", low_count)
     
+    st.markdown("---")
+
+    # --- 📢 ერთიანი Alert / განგაშის გაგზავნის სექცია ---
+    st.markdown("### 📢 გლობალური შეტყობინება / Broadcast Alert მენეჯმენტიდან")
+    st.markdown("<p style='color: #94a3b8; font-size: 14px;'>ჩაწერეთ ტექსტი ქვემოთ მოცემულ ველში და გაგზავნეთ — შეტყობინება მყისიერად გამოჩნდება სისტემის ყველა მომხმარებელთან.</p>", unsafe_allow_html=True)
+    
+    with st.form("broadcast_alert_form"):
+        broadcast_text = st.text_area("შეტყობინების ტექსტი:", placeholder="გააფრთხილეთ პერსონალი მნიშვნელოვანი ცვლილების ან ღონისძიების შესახებ...")
+        submit_alert = st.form_submit_button("📢 ერთიანი Alert-ის გაგზავნა", use_container_width=True)
+        
+        if submit_alert:
+            if broadcast_text.strip():
+                try:
+                    new_alert_record = {
+                        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "sender": st.session_state.current_user,
+                        "alert_text": broadcast_text.strip()
+                    }
+                    if os.path.exists(ALERTS_FILE):
+                        df_alt = pd.read_csv(ALERTS_FILE)
+                        df_alt = pd.concat([df_alt, pd.DataFrame([new_alert_record])], ignore_index=True)
+                    else:
+                        df_alt = pd.DataFrame([new_alert_record])
+                    df_alt.to_csv(ALERTS_FILE, index=False, encoding='utf-8-sig')
+                    
+                    log_action(st.session_state.current_user, "Broadcast Alert", "ყველა მომხმარებელი", broadcast_text.strip())
+                    st.success("✅ განგაში/შეტყობინება წარმატებით გაიგზავნა და აისახა სისტემაში!")
+                except Exception as e:
+                    st.error(f"შეცდომა შეტყობინების გაგზავნისას: {e}")
+            else:
+                st.warning("⚠️ გთხოვთ, შეიყვანოთ შეტყობინების ტექსტი!")
+
     st.markdown("---")
 
     if not df_main.empty:
