@@ -338,13 +338,12 @@ st.markdown(f"""
 
 # --- 🧭 საიდბარი (მენიუ) ---
 st.sidebar.markdown(f"**👤 მომხმარებელი:** {st.session_state.current_user}")
-if st.sidebar.button("🔒 ეკრანი დაბლოკვა (Lock)", use_container_width=True):
+if st.sidebar.button("🔒 ეკრანის დაბლოკვა (Lock)", use_container_width=True):
     st.session_state.screen_locked = True
     st.rerun()
 
 st.sidebar.markdown("---")
 
-# ვამოწმებთ როლს: დირექტორებს (ლალი და ნიკა) ვუმალავთ "სალექციო პროცესის მართვას"
 is_director = st.session_state.current_role in ["director_lali", "director_nika"]
 
 if st.session_state.current_role == "doctor":
@@ -390,7 +389,7 @@ if st.sidebar.button("🚪 სისტემიდან გასვლა", u
 # =========================================================================
 # 📚 სალექციო პროცესის მართვა (მხოლოდ უფლებამოსილი მენეჯერებისთვის)
 # =========================================================================
-if menu_selection == "📚 სალექციო პროცესის მართვა":
+if menu_selection == "📚 სალექციო პროცესის მართვა" and not is_director:
     st.subheader("📚 სალექციო პროცესის მართვა და აუდიტორიების განრიგი")
     st.markdown("<p style='color: #94a3b8;'>აირჩიე სასურველი თარიღი და ნახე აუდიტორიების დატვირთულობა მკაცრი ვალიდაციითა და კონფლიქტების პრევენციით.</p>", unsafe_allow_html=True)
 
@@ -460,160 +459,8 @@ if menu_selection == "📚 სალექციო პროცესის მ
     df_matrix = pd.DataFrame(matrix_data)
     st.dataframe(df_matrix, use_container_width=True, hide_index=True, height=380)
 
-    st.markdown("---")
-    st.markdown("### 🧹 ცხრილისა და განრიგის მართვა / გასუფთავება")
-    if not df_lectures.empty:
-        with st.expander("🛠️ ლექციების წაშლის / გასუფთავების ინსტრუმენტები", expanded=False):
-            st.markdown("#### 🗑️ კონკრეტული ლექციის წაშლა")
-            lecture_options = [f"{row['lector']} — {row['course']} ({row['auditorium']} | {row['start_date']})" for _, row in df_lectures.iterrows()]
-            selected_to_delete = st.selectbox("აირჩიეთ წასაშლელი ლექცია:", ["--- აირჩიეთ ---"] + lecture_options)
-            
-            if selected_to_delete != "--- აირჩიეთ ---":
-                if st.button("❌ მონიშნული ლექციის წაშლა", use_container_width=True):
-                    idx_to_drop = lecture_options.index(selected_to_delete)
-                    deleted_lector = df_lectures.iloc[idx_to_drop]["lector"]
-                    df_lectures = df_lectures.drop(df_lectures.index[idx_to_drop])
-                    df_lectures.to_csv(LECTURES_FILE, index=False, encoding='utf-8-sig')
-                    log_action(st.session_state.current_user, "ლექციის წაშლა", deleted_lector, "კონკრეტული ლექცია ამოიშალა გრაფიკიდან")
-                    st.success("✅ არჩეული ლექცია წარმატებით წაიშალა განრიგიდან!")
-                    st.rerun()
-
-            st.markdown("---")
-            st.markdown("#### ⚠️ სრული განრიგის გასუფთავება")
-            if st.button("🚨 ყველაფრის წაშლა და განრიგის სრულად გასუფთავება", type="secondary", use_container_width=True):
-                df_empty = pd.DataFrame(columns=["lector", "course", "university", "start_date", "end_date", "auditorium", "start_hour", "end_hour", "weekend_mode", "total_hours"])
-                df_empty.to_csv(LECTURES_FILE, index=False, encoding='utf-8-sig')
-                log_action(st.session_state.current_user, "განრიგის სრული გასუფთავება", "ყველა ლექცია", "მთლიანი ცხრილი განულდა")
-                st.success("✅ სალექციო განრიგი სრულად გაიწმინდა!")
-                st.rerun()
-    else:
-        st.info("ℹ️ განრიგი ცარიელია, გასუფთავება საჭირო არ არის.")
-
-    st.markdown("---")
-    st.markdown("### 📝 ლექციის / კურსის დაგეგმვის ფორმა")
-
-    with st.form("lecture_form"):
-        col_f1, col_f2 = st.columns(2)
-        with col_f1:
-            lector_name = st.text_input("👨‍🏫 ლექტორი (* სავალდებულო):", placeholder="მაგ: გიორგი ბერიძე")
-            course_name = st.text_input("📖 კურსის დასახელება (* სავალდებულო):", placeholder="მაგ: კლინიკური კომუნიკაცია")
-        with col_f2:
-            university_name = st.text_input("🏛️ უნივერსიტეტი:", placeholder="მაგ: Caucasus University")
-            sel_auditorium = st.selectbox("🚪 აუდიტორია:", auditoriums)
-            
-        col_f3, col_f4 = st.columns(2)
-        with col_f3:
-            start_date = st.date_input("📅 კურსის დასაწყისი:")
-        with col_f4:
-            end_date = st.date_input("📅 კურსის დასასრული:")
-            
-        col_h1, col_h2 = st.columns(2)
-        with col_h1:
-            start_hour = st.selectbox("⏰ საწყისი საათი:", hours_cols, index=0)
-        with col_h2:
-            end_hour = st.selectbox("⏰ დასასრული საათი:", hours_cols, index=3)
-
-        st.markdown("<p style='font-size: 14px; font-weight: 600; color: #cbd5e1; margin-bottom: 5px;'>📅 შაბათ-კვირის გრაფიკი:</p>", unsafe_allow_html=True)
-        col_w1, col_w2, col_w3 = st.columns(3)
-        with col_w1:
-            sat_only = st.checkbox("მხოლოდ შაბათს")
-        with col_w2:
-            sun_only = st.checkbox("მხოლოდ კვირას")
-        with col_w3:
-            both_weekends = st.checkbox("შაბათსაც და კვირასაც")
-        
-        submit_lecture = st.form_submit_button("🚀 ლექციის დაგეგმვა და განრიგში ასახვა", use_container_width=True)
-        
-        if submit_lecture:
-            if not lector_name.strip() or not course_name.strip():
-                st.error("⚠️ შეცდომა: ლექტორის სახელი და კურსის დასახელება სავალდებულოა!")
-            elif start_hour > end_hour:
-                st.error("⚠️ შეცდომა: საწყისი საათი არ შეიძლება იყოს დასასრულის საათზე გვიანი!")
-            elif start_date > end_date:
-                st.error("⚠️ შეცდომა: კურსის დასაწყისი თარიღი არ შეიძლება იყოს დასასრულის თარიღზე გვიანი!")
-            else:
-                conflict_detected = False
-                conflict_message = ""
-
-                d_start = pd.to_datetime(start_date)
-                d_end = pd.to_datetime(end_date)
-                
-                if not df_lectures.empty:
-                    for _, existing_lec in df_lectures.iterrows():
-                        ex_start = pd.to_datetime(existing_lec["start_date"])
-                        ex_end = pd.to_datetime(existing_lec["end_date"])
-                        
-                        dates_overlap = not (d_end < ex_start or d_start > ex_end)
-                        
-                        if dates_overlap:
-                            ex_s_hour = str(existing_lec["start_hour"])
-                            ex_e_hour = str(existing_lec["end_hour"])
-                            hours_overlap = not (end_hour < ex_s_hour or start_hour > ex_e_hour)
-                            
-                            if hours_overlap:
-                                if str(existing_lec["auditorium"]) == sel_auditorium:
-                                    conflict_detected = True
-                                    conflict_message = f"🚨 კონფლიქტი: **{sel_auditorium}** უკვე დაჯავშნილია ამ პერიოდში ({ex_s_hour} - {ex_e_hour}) კურსისთვის: „{existing_lec['course']}“!"
-                                    break
-                                
-                                if str(existing_lec["lector"]).strip().lower() == lector_name.strip().lower():
-                                    conflict_detected = True
-                                    conflict_message = f"🚨 კონფლიქტი: ლექტორი **{lector_name}** უკვე დაკავებულია ამავე დროს ({ex_s_hour} - {ex_e_hour}) სხვა კურსზე: „{existing_lec['course']}“!"
-                                    break
-
-                if conflict_detected:
-                    st.error(conflict_message)
-                else:
-                    if both_weekends:
-                        weekend_mode_str = "შაბათი და კვირა"
-                    elif sat_only:
-                        weekend_mode_str = "მხოლოდ შაბათი"
-                    elif sun_only:
-                        weekend_mode_str = "მხოლოდ კვირა"
-                    else:
-                        weekend_mode_str = "არცერთი"
-
-                    total_calculated_hours = 0
-                    current_d = d_start
-                    s_idx = hours_cols.index(start_hour)
-                    e_idx = hours_cols.index(end_hour)
-                    hours_per_day = (e_idx - s_idx) + 1
-
-                    while current_d <= d_end:
-                        weekday = current_d.weekday()
-                        if weekday < 5:
-                            total_calculated_hours += hours_per_day
-                        elif weekday == 5:
-                            if sat_only or both_weekends:
-                                total_calculated_hours += hours_per_day
-                        elif weekday == 6:
-                            if sun_only or both_weekends:
-                                total_calculated_hours += hours_per_day
-                        current_d += timedelta(days=1)
-
-                    new_lec_record = {
-                        "lector": lector_name.strip(),
-                        "course": course_name.strip(),
-                        "university": university_name.strip(),
-                        "start_date": str(start_date),
-                        "end_date": str(end_date),
-                        "auditorium": sel_auditorium,
-                        "start_hour": start_hour,
-                        "end_hour": end_hour,
-                        "weekend_mode": weekend_mode_str,
-                        "total_hours": total_calculated_hours
-                    }
-                    try:
-                        df_new = pd.concat([df_lectures, pd.DataFrame([new_lec_record])], ignore_index=True)
-                        df_new.to_csv(LECTURES_FILE, index=False, encoding='utf-8-sig')
-                        log_action(st.session_state.current_user, "ლექციის დაგეგმვა", lector_name.strip(), f"კურსი: {course_name}, რეჟიმი: {weekend_mode_str}, საათები: {total_calculated_hours}სთ")
-                        st.success(f"✅ ლექცია წარმატებით დაიგეგმა! ({weekend_mode_str}) | ჯამური საათები: **{total_calculated_hours} სთ**")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"შეცდომა შენახვისას: {e}")
-
 # =========================================================================
-# 📋 ექიმების რეესტრი (Pagination-ით, Checkbox-ებით და მასობრივი წაშლით)
+# 📋 ექიმების რეესტრი
 # =========================================================================
 elif menu_selection == "ექიმების რეესტრი":
     st.subheader("📋 ექიმების რეესტრი, რეგისტრაცია და მონაცემთა მართვა")
@@ -653,7 +500,7 @@ elif menu_selection == "ექიმების რეესტრი":
                         log_action(st.session_state.current_user, "ექიმის რეგისტრაცია", new_doc_name.strip(), f"კლინიკა: {new_doc_clinic}, კრედიტი: {new_doc_credits}")
                         st.success(f"✅ ექიმი **{new_doc_name}** წარმატებით დარეგისტრირდა!")
                     except Exception as e:
-                        st.error(f"ტექნიკური შეცდომა ბაზაში ჩაწერისას: {e}")
+                        st.error(f"ტექნიკური შეცდომა ბაზის ინიციალიზაციისას: {e}")
 
     with tab_list:
         st.markdown("### 📋 ექიმების სია, მონიშვნა და მართვა")
@@ -814,18 +661,57 @@ elif menu_selection == "ექიმების რეესტრი":
                 st.error(f"🚨 კრიტიკული შეცდომა ფაილის დამუშავებისას: {e}")
 
 # =========================================================================
-# მთავარი დაფა & დანარჩენი სექციები
+# მთავარი დაფა & დირექტორთა გაფართოებული ანალიტიკა
 # =========================================================================
 elif menu_selection == "მთავარი დაფა & ანალიტიკა":
-    st.subheader("📊 მთავარი დაფა — ანალიტიკა და ვიზუალური დიაგრამები")
+    st.subheader("📊 გენერალური მენეჯმენტისა და დირექციის ანალიტიკური დაფა")
+    st.markdown("<p style='color: #94a3b8;'>პლატფორმის ზოგადი წარმოდგენა: ძირითადი მეტრიკები, კლინიკების დატვირთულობა, კრედიტების სტატისტიკა და ბოლო აუდიტორული ცვლილებები.</p>", unsafe_allow_html=True)
+    
     doctors_data = fetch_doctors()
     df_main = pd.DataFrame(doctors_data)
-    low_count = len(df_main[df_main["credits"] < 30]) if not df_main.empty else 0
+    
+    if not df_main.empty:
+        total_docs = len(df_main)
+        low_credits_count = len(df_main[df_main["credits"] < 30])
+        avg_credits = round(df_main["credits"].mean(), 1) if total_docs > 0 else 0
+        
+        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+        col_m1.metric("👥 რეგისტრირებული ექიმები", total_docs)
+        col_m2.metric("⭐ საშუალო კრედიტები", avg_credits)
+        col_m3.metric("⚠️ რისკ-ჯგუფი (<30 კრედიტი)", low_credits_count, delta_color="inverse")
+        col_m4.metric("🏥 ჩართული კლინიკები", len(CLINICS_LIST))
+        
+        st.markdown("---")
+        
+        col_ch1, col_ch2 = st.columns(2)
+        with col_ch1:
+            st.markdown("### 🏥 კლინიკების მიხედვით განაწილება")
+            clinic_counts = df_main["clinic"].value_counts().reset_index()
+            clinic_counts.columns = ["კლინიკა", "ექიმების რაოდენობა"]
+            st.dataframe(clinic_counts, use_container_width=True, hide_index=True)
+            
+        with col_ch2:
+            st.markdown("### 🩺 ძირითადი სპეციალობები")
+            spec_counts = df_main["specialty"].value_counts().reset_index()
+            spec_counts.columns = ["სპეციალობა", "რაოდენობა"]
+            st.dataframe(spec_counts, use_container_width=True, hide_index=True)
+    else:
+        st.info("ℹ️ ბაზა ცარიელია. მონაცემების სანახავად გთხოვთ ატვირთოთ ფაილი ან დაარეგისტრიროთ ექიმები.")
 
-    col_1, col_2, col_3 = st.columns(3)
-    col_1.metric("რეგისტრირებულ ექიმთა საერთო რაოდენობა", len(df_main))
-    col_2.metric("ჩართული კლინიკური ცენტრები", len(CLINICS_LIST))
-    col_3.metric("ექიმები (<30 კრედიტით)", low_count)
+    st.markdown("---")
+    st.markdown("### 📜 ბოლო განახლებები & აუდიტის ცვლილებები სისტემაში")
+    if os.path.exists(LOG_FILE):
+        try:
+            df_log_view = pd.read_csv(LOG_FILE)
+            if not df_log_view.empty:
+                # ვთხოვთ ბოლო 10 ჩანაწერს
+                st.dataframe(df_log_view.tail(10).iloc[::-1], use_container_width=True, hide_index=True)
+            else:
+                st.info("ℹ️ აუდიტის ჟურნალი ცარიელია.")
+        except Exception:
+            st.info("ℹ️ აუდიტის ჟურნალის წაკითხვის შეფერხება.")
+    else:
+        st.info("ℹ️ აუდიტის ჟურნალის ფაილი ჯერ არ არსებობს.")
 
 elif menu_selection == "👤 ექიმის პირადი პორტალი":
     st.subheader("👤 ექიმის პირადი პორტალი (Doctor Self-Service)")
@@ -864,7 +750,7 @@ elif menu_selection == "კლინიკები":
     st.subheader("🏥 კლინიკები — რეპორტები")
     sel_cl = st.selectbox("აირჩიეთ კლინიკა:", CLINICS_LIST)
     all_doctors = fetch_doctors()
-    filtered_doctors = [d for d in all_doctors if d.get("clinic"] == sel_cl]
+    filtered_doctors = [d for d in all_doctors if d.get("clinic") == sel_cl]
     if filtered_doctors:
         st.dataframe(pd.DataFrame(filtered_doctors), use_container_width=True, hide_index=True)
 
