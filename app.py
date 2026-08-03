@@ -3,7 +3,6 @@ import pandas as pd
 from datetime import datetime, timedelta
 import sqlite3
 import os
-import io
 import bcrypt
 
 # OCR-ისთვის უსაფრთხო იმპორტი
@@ -373,7 +372,7 @@ if st.sidebar.button("🚪 სისტემიდან გასვლა", u
 # =========================================================================
 if menu_selection == "📚 სალექციო პროცესის მართვა":
     st.subheader("📚 სალექციო პროცესის მართვა და აუდიტორიების განრიგი")
-    st.markdown("<p style='color: #94a3b8;'>აუდიტორიების დატვირთულობის ცხრილი ლექტორების სახელებითა და ავტომატური კონფლიქტების პრევენციით.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #94a3b8;'>აუდიტორიების დატვირთულობის ცხრილი ლექტორების სახელებით, კონფლიქტების პრევენციითა და განრიგის გასუფთავების მექანიზმით.</p>", unsafe_allow_html=True)
 
     hours_cols = [f"{h:02d}:00" for h in range(9, 19)]
     auditoriums = ["აუდიტორია 1", "აუდიტორია 2", "აუდიტორია 3", "აუდიტორია 4", "აუდიტორია 5"]
@@ -414,21 +413,41 @@ if menu_selection == "📚 სალექციო პროცესის მ
 
     st.markdown("---")
 
-    # --- 📥 სალექციო რეპორტის CSV ფაილის გატანა (სრულიად სტაბილური) ---
-    st.markdown("### 📥 ლექციების ჩატარების დეტალური რეპორტი (CSV)")
-    st.markdown("<p style='color: #94a3b8; font-size: 14px;'>გადმოწერეთ სრული სალექციო რეპორტი ცხრილის სახით (იხსნება Excel-ში ან ნებისმიერ ტექსტურ რედაქტორში).</p>", unsafe_allow_html=True)
-    
+    # =========================================================================
+    # 🧹 განრიგის და ცხრილის მართვისა და გასუფთავების პანელი
+    # =========================================================================
+    st.markdown("### 🧹 ცხრილისა და განრიგის მართვა / გასუფთავება")
+    st.markdown("<p style='color: #94a3b8; font-size: 14px;'>შეგიძლია წაშალო კონკრეტული ლექცია ლექტორის, კურსის ან აუდიტორიის მიხედვით, ან სრულად გაასუფთავო ცხრილი.</p>", unsafe_allow_html=True)
+
     if not df_lectures.empty:
-        csv_data = df_lectures.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig')
-        st.download_button(
-            label="📥 დეტალური სალექციო რეპორტის გადმოწერა (CSV)",
-            data=csv_data,
-            file_name="Lectures_Detailed_Report.csv",
-            mime="text/csv",
-            use_container_width=True
-        )
+        with st.expander("🛠️ ლექციების წაშლის / გასუფთავების ინსტრუმენტები", expanded=False):
+            # 1. კონკრეტული ლექციის წაშლა ჩანაწერების სიიდან
+            st.markdown("#### 🗑️ კონკრეტული ლექციის წაშლა")
+            lecture_options = [f"{row['lector']} — {row['course']} ({row['auditorium']} | {row['start_date']})" for _, row in df_lectures.iterrows()]
+            selected_to_delete = st.selectbox("აირჩიეთ წასაშლელი ლექცია:", ["--- აირჩიეთ ---"] + lecture_options)
+            
+            if selected_to_delete != "--- აირჩიეთ ---":
+                if st.button("❌ მონიშნული ლექციის წაშლა", use_container_width=True):
+                    idx_to_drop = lecture_options.index(selected_to_delete)
+                    deleted_lector = df_lectures.iloc[idx_to_drop]["lector"]
+                    df_lectures = df_lectures.drop(df_lectures.index[idx_to_drop])
+                    df_lectures.to_csv(LECTURES_FILE, index=False, encoding='utf-8-sig')
+                    log_action(st.session_state.current_user, "ლექციის წაშლა", deleted_lector, "კონკრეტული ლექცია ამოიშალა გრაფიკიდან")
+                    st.success("✅ არჩეული ლექცია წარმატებით წაიშალა განრიგიდან!")
+                    st.rerun()
+
+            st.markdown("---")
+            
+            # 2. მთლიანი ცხრილის გასუფთავება
+            st.markdown("#### ⚠️ სრული განრიგის გასუფთავება")
+            if st.button("🚨 ყველაფრის წაშლა და განრიგის სრულად გასუფთავება", type="secondary", use_container_width=True):
+                df_empty = pd.DataFrame(columns=["lector", "course", "university", "start_date", "end_date", "auditorium", "start_hour", "end_hour", "weekend_mode", "total_hours"])
+                df_empty.to_csv(LECTURES_FILE, index=False, encoding='utf-8-sig')
+                log_action(st.session_state.current_user, "განრიგის სრული გასუფთავება", "ყველა ლექცია", "მთლიანი ცხრილი განულდა")
+                st.success("✅ სალექციო განრიგი სრულად გაიწმინდა!")
+                st.rerun()
     else:
-        st.info("ℹ️ დაგეგმილი ლექციები ჯერ არ ფიქსირდება ბაზაში.")
+        st.info("ℹ️ განრიგი ცარიელია, გასუფთავება საჭირო არ არის.")
 
     st.markdown("---")
     st.markdown("### 📝 ლექციის / კურსის დაგეგმვის ფორმა")
