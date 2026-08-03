@@ -372,7 +372,7 @@ if st.sidebar.button("🚪 სისტემიდან გასვლა", u
 # =========================================================================
 if menu_selection == "📚 სალექციო პროცესის მართვა":
     st.subheader("📚 სალექციო პროცესის მართვა და აუდიტორიების განრიგი")
-    st.markdown("<p style='color: #94a3b8;'>აუდიტორიების დატვირთულობის ცხრილი ლექტორების სახელებით, კონფლიქტების პრევენციითა და განრიგის გასუფთავების მექანიზმით.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #94a3b8;'>აირჩიე სასურველი თარიღი და ნახე აუდიტორიების დატვირთულობა შენარჩუნებული კონფლიქტებისა და მენეჯმენტის ინსტრუმენტებით.</p>", unsafe_allow_html=True)
 
     hours_cols = [f"{h:02d}:00" for h in range(9, 19)]
     auditoriums = ["აუდიტორია 1", "აუდიტორია 2", "აუდიტორია 3", "აუდიტორია 4", "აუდიტორია 5"]
@@ -389,8 +389,15 @@ if menu_selection == "📚 სალექციო პროცესის მ
     else:
         df_lectures = pd.DataFrame(columns=["lector", "course", "university", "start_date", "end_date", "auditorium", "start_hour", "end_hour", "weekend_mode", "total_hours"])
 
-    # --- 🗓️ აუდიტორიების განრიგის ცხრილი (ლექტორის სახელებით და გაზრდილი სიმაღლით) ---
-    st.markdown("### 📊 აუდიტორიების განრიგი (ლექტორების მითითებით)")
+    # --- 🗓️ ინტერაქტიული თარიღის ამორჩეველი ცხრილისთვის ---
+    col_d_sel1, col_d_sel2 = st.columns([1, 2])
+    with col_d_sel1:
+        selected_view_date = st.date_input("📅 აირჩიეთ სანახავი თარიღი:", value=datetime.today().date())
+    
+    selected_dt = pd.to_datetime(selected_view_date)
+    sel_weekday = selected_dt.weekday() # 0-4 ორშაბათი-პარასკევი, 5 შაბათი, 6 კვირა
+
+    st.markdown(f"### 📊 აუდიტორიების განრიგი თარიღისთვის: <span style='color: #818cf8;'>{selected_view_date}</span>", unsafe_allow_html=True)
     
     matrix_data = []
     for aud in auditoriums:
@@ -399,12 +406,31 @@ if menu_selection == "📚 სალექციო პროცესის მ
             cell_status = "🟢 თავისუფალია"
             for _, lec in df_lectures.iterrows():
                 if str(lec.get("auditorium")) == aud:
-                    s_h = str(lec.get("start_hour", ""))
-                    e_h = str(lec.get("end_hour", ""))
-                    if s_h and e_h and s_h <= h <= e_h:
-                        lector = lec.get("lector", "უცნობი")
-                        cell_status = f"🔴 {lector}"
-                        break
+                    s_date = pd.to_datetime(lec.get("start_date"))
+                    e_date = pd.to_datetime(lec.get("end_date"))
+                    
+                    # ვამოწმებთ ეკუთვნის თუ არა ეს თარიღი კურსის დიაპაზონს
+                    if s_date <= selected_dt <= e_date:
+                        w_mode = str(lec.get("weekend_mode", "არცერთი"))
+                        
+                        # ვამოწმებთ ტარდება თუ არა ლექცია ამ კონკრეტულ კვირის დღეს
+                        is_valid_day = False
+                        if sel_weekday < 5:
+                            is_valid_day = True # სამუშაო დღეები ყოველთვის ითვლება
+                        elif sel_weekday == 5:
+                            if "შაბათი" in w_mode:
+                                is_valid_day = True
+                        elif sel_weekday == 6:
+                            if "კვირა" in w_mode:
+                                is_valid_day = True
+                                
+                        if is_valid_day:
+                            s_h = str(lec.get("start_hour", ""))
+                            e_h = str(lec.get("end_hour", ""))
+                            if s_h and e_h and s_h <= h <= e_h:
+                                lector = lec.get("lector", "უცნობი")
+                                cell_status = f"🔴 {lector}"
+                                break
             row[h] = cell_status
         matrix_data.append(row)
         
@@ -421,7 +447,6 @@ if menu_selection == "📚 სალექციო პროცესის მ
 
     if not df_lectures.empty:
         with st.expander("🛠️ ლექციების წაშლის / გასუფთავების ინსტრუმენტები", expanded=False):
-            # 1. კონკრეტული ლექციის წაშლა ჩანაწერების სიიდან
             st.markdown("#### 🗑️ კონკრეტული ლექციის წაშლა")
             lecture_options = [f"{row['lector']} — {row['course']} ({row['auditorium']} | {row['start_date']})" for _, row in df_lectures.iterrows()]
             selected_to_delete = st.selectbox("აირჩიეთ წასაშლელი ლექცია:", ["--- აირჩიეთ ---"] + lecture_options)
@@ -438,7 +463,6 @@ if menu_selection == "📚 სალექციო პროცესის მ
 
             st.markdown("---")
             
-            # 2. მთლიანი ცხრილის გასუფთავება
             st.markdown("#### ⚠️ სრული განრიგის გასუფთავება")
             if st.button("🚨 ყველაფრის წაშლა და განრიგის სრულად გასუფთავება", type="secondary", use_container_width=True):
                 df_empty = pd.DataFrame(columns=["lector", "course", "university", "start_date", "end_date", "auditorium", "start_hour", "end_hour", "weekend_mode", "total_hours"])
