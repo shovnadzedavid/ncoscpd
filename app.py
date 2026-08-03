@@ -464,11 +464,11 @@ if st.sidebar.button("🚪 სისტემიდან გასვლა", u
     st.rerun()
 
 # =========================================================================
-# 📚 სალექციო პროცესის მართვა (გადიდებული, სრულსიგანე ცხრილით და დიაპაზონის ლოგიკით)
+# 📚 სალექციო პროცესის მართვა (რეპორტის ექსპორტით)
 # =========================================================================
 if menu_selection == "📚 სალექციო პროცესის მართვა":
     st.subheader("📚 სალექციო პროცესის მართვა და აუდიტორიების განრიგი")
-    st.markdown("<p style='color: #94a3b8;'>აუდიტორიების დატვირთულობის ცხრილი და ლექციების დაგეგმვის პანელი.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #94a3b8;'>აუდიტორიების დატვირთულობის ცხრილი, ლექციების დაგეგმვის პანელი და დეტალური რეპორტის ექსპორტი.</p>", unsafe_allow_html=True)
 
     hours_cols = [f"{h:02d}:00" for h in range(9, 19)]
     auditoriums = ["აუდიტორია 1", "აუდიტორია 2", "აუდიტორია 3", "აუდიტორია 4", "აუდიტორია 5"]
@@ -482,7 +482,7 @@ if menu_selection == "📚 სალექციო პროცესის მ
     else:
         df_lectures = pd.DataFrame(columns=["lector", "course", "university", "start_date", "end_date", "auditorium", "start_hour", "end_hour"])
 
-    # --- 🗓️ აუდიტორიების განრიგის ცხრილი (გადიდებული & სრულსიგანე) ---
+    # --- 🗓️ აუდიტორიების განრიგის ცხრილი ---
     st.markdown("### 📊 აუდიტორიების განრიგი (დატვირთულობის ინდიკატორი)")
     
     matrix_data = []
@@ -494,7 +494,6 @@ if menu_selection == "📚 სალექციო პროცესის მ
                 if str(lec.get("auditorium")) == aud:
                     s_h = str(lec.get("start_hour", ""))
                     e_h = str(lec.get("end_hour", ""))
-                    # ვამოწმებთ შუალედს
                     if s_h and e_h and s_h <= h <= e_h:
                         is_busy = True
                         break
@@ -502,9 +501,25 @@ if menu_selection == "📚 სალექციო პროცესის მ
         matrix_data.append(row)
         
     df_matrix = pd.DataFrame(matrix_data)
-    
-    # ვზრდით ვიზუალურ სიმაღლეს (height-ის მიხედვით) და ვიყენებთ სრულ სიგანეს
     st.dataframe(df_matrix, use_container_width=True, hide_index=True, height=280)
+
+    st.markdown("---")
+
+    # --- 📥 სალექციო რეპორტის ფაილის გატანა (Export) ---
+    st.markdown("### 📥 ლექციების ჩატარების დეტალური რეპორტი")
+    st.markdown("<p style='color: #94a3b8; font-size: 14px;'>გადმოწერეთ სრული რეპორტი დაგეგმილი ლექციების, ლექტორებისა და უნივერსიტეტების შესახებ.</p>", unsafe_allow_html=True)
+    
+    if not df_lectures.empty:
+        lectures_csv_data = df_lectures.to_csv(index=False).encode('utf-8-sig')
+        st.download_button(
+            label="📥 დეტალური სალექციო რეპორტის გადმოწერა (CSV)",
+            data=lectures_csv_data,
+            file_name="Lectures_Detailed_Report.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+    else:
+        st.info("ℹ️ დაგეგმილი ლექციები ჯერ არ ფიქსირდება ბაზაში, შესაბამისად რეპორტი ცარიელია.")
 
     st.markdown("---")
     st.markdown("### 📝 ლექციის / კურსის დაგეგმვის ფორმა")
