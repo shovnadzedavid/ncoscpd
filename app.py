@@ -32,6 +32,12 @@ except Exception:
         REPORTLAB_AVAILABLE = False
 
 # --- ⚙️ აპლიკაციის კონფიგურაცია ---
+st.set_page_config(
+    page_title="NCOS CPD/Academic Programs Portal",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
 DB_NAME = "edumed_core_healthcare.db"
 LOG_FILE = "edumed_audit_logs.csv"
 CREDITS_HISTORY_FILE = "edumed_credits_history.csv"
@@ -458,49 +464,47 @@ if st.sidebar.button("🚪 სისტემიდან გასვლა", u
     st.rerun()
 
 # =========================================================================
-# 📚 სალექციო პროცესის მართვა (ზუსტად შენი მოთხოვნის მიხედვით)
+# 📚 სალექციო პროცესის მართვა (გადიდებული, სრულსიგანე ცხრილით და დიაპაზონის ლოგიკით)
 # =========================================================================
 if menu_selection == "📚 სალექციო პროცესის მართვა":
     st.subheader("📚 სალექციო პროცესის მართვა და აუდიტორიების განრიგი")
-    st.markdown("<p style='color: #94a3b8;'>აუდიტორიების დატვირთულობის ცხრილი (ორშაბათი-პარასკევი, 09:00 - 18:00) და ლექციების დაგეგმვის ფორმა.</p>", unsafe_allow_html=True)
-    
-    # ექიმების სიის წამოღება ლექტორებისთვის
-    doctors_list = fetch_doctors()
-    doctor_names = [d["name"] for d in doctors_list] if doctors_list else ["ლექტორი არ მოიძებნა"]
+    st.markdown("<p style='color: #94a3b8;'>აუდიტორიების დატვირთულობის ცხრილი და ლექციების დაგეგმვის პანელი.</p>", unsafe_allow_html=True)
 
-    days_cols = ["ორშაბათი", "სამშაბათი", "ოთხშაბათი", "ხუთშაბათი", "პარასკევი"]
     hours_cols = [f"{h:02d}:00" for h in range(9, 19)]
+    auditoriums = ["აუდიტორია 1", "აუდიტორია 2", "აუდიტორია 3", "აუდიტორია 4", "აუდიტორია 5"]
     
     # ვინახავთ დაგეგმილ ლექციებს CSV ფაილში
     if os.path.exists(LECTURES_FILE):
         try:
             df_lectures = pd.read_csv(LECTURES_FILE)
         except:
-            df_lectures = pd.DataFrame(columns=["lector", "course", "university", "start_date", "end_date", "auditorium", "lecture_hours"])
+            df_lectures = pd.DataFrame(columns=["lector", "course", "university", "start_date", "end_date", "auditorium", "start_hour", "end_hour"])
     else:
-        df_lectures = pd.DataFrame(columns=["lector", "course", "university", "start_date", "end_date", "auditorium", "lecture_hours"])
+        df_lectures = pd.DataFrame(columns=["lector", "course", "university", "start_date", "end_date", "auditorium", "start_hour", "end_hour"])
 
-    # --- 🗓️ ექსელის სქრინშოტის მსგავსი ცხრილი (აუდიტორია 1-5) ---
-    st.markdown("### 📊 აუდიტორიების განრიგი (გაფერადების ინდიკატორით)")
+    # --- 🗓️ აუდიტორიების განრიგის ცხრილი (გადიდებული & სრულსიგანე) ---
+    st.markdown("### 📊 აუდიტორიების განრიგი (დატვირთულობის ინდიკატორი)")
     
     matrix_data = []
-    auditoriums = ["აუდიტორია 1", "აუდიტორია 2", "აუდიტორია 3", "აუდიტორია 4", "აუდიტორია 5"]
-    
     for aud in auditoriums:
         row = {"აუდიტორია": aud}
         for h in hours_cols:
             is_busy = False
             for _, lec in df_lectures.iterrows():
                 if str(lec.get("auditorium")) == aud:
-                    hours_list = str(lec.get("lecture_hours", "")).split(",")
-                    if h in [hr.strip() for hr in hours_list]:
+                    s_h = str(lec.get("start_hour", ""))
+                    e_h = str(lec.get("end_hour", ""))
+                    # ვამოწმებთ შუალედს
+                    if s_h and e_h and s_h <= h <= e_h:
                         is_busy = True
                         break
             row[h] = "🔴 დაკავებულია" if is_busy else "🟢 თავისუფალია"
         matrix_data.append(row)
         
     df_matrix = pd.DataFrame(matrix_data)
-    st.dataframe(df_matrix, use_container_width=True, hide_index=True)
+    
+    # ვზრდით ვიზუალურ სიმაღლეს (height-ის მიხედვით) და ვიყენებთ სრულ სიგანეს
+    st.dataframe(df_matrix, use_container_width=True, hide_index=True, height=280)
 
     st.markdown("---")
     st.markdown("### 📝 ლექციის / კურსის დაგეგმვის ფორმა")
@@ -508,8 +512,8 @@ if menu_selection == "📚 სალექციო პროცესის მ
     with st.form("lecture_form"):
         col_f1, col_f2 = st.columns(2)
         with col_f1:
-            sel_lector = st.selectbox("👨‍🏫 ლექტორი (ექიმთა ბაზიდან):", doctor_names)
-            course_name = st.text_input("📖 კურსის დასახელება:", placeholder="შეიყვანეთ ნებისმიერი კურსი")
+            lector_name = st.text_input("👨‍🏫 ლექტორი:", placeholder="ჩაწერეთ ლექტორის სახელი და გვარი")
+            course_name = st.text_input("📖 კურსის დასახელება:", placeholder="მაგ: ფუნდამენტური საზოგადოებრივი ჯანდაცვა")
         with col_f2:
             university_name = st.text_input("🏛️ უნივერსიტეტი:", placeholder="მაგ: Caucasus University")
             sel_auditorium = st.selectbox("🚪 აუდიტორია:", auditoriums)
@@ -520,27 +524,34 @@ if menu_selection == "📚 სალექციო პროცესის მ
         with col_f4:
             end_date = st.date_input("📅 კურსის დასასრული:")
             
-        lecture_hours_input = st.text_input("⏰ სალექციო საათები (მძიმით, მაგ: 09:00, 10:00, 11:00):", value="09:00, 10:00")
+        col_h1, col_h2 = st.columns(2)
+        with col_h1:
+            start_hour = st.selectbox("⏰ საწყისი საათი:", hours_cols, index=0)
+        with col_h2:
+            end_hour = st.selectbox("⏰ დასასრული საათი:", hours_cols, index=3)
         
         submit_lecture = st.form_submit_button("🚀 ლექციის დაგეგმვა და განრიგში ასახვა", use_container_width=True)
         
         if submit_lecture:
-            if not course_name.strip():
-                st.error("⚠️ გთხოვთ, მიუთითოთ კურსის დასახელება!")
+            if not course_name.strip() or not lector_name.strip():
+                st.error("⚠️ გთხოვთ, შეავსოთ ლექტორი და კურსის დასახელება!")
+            elif start_hour > end_hour:
+                st.error("⚠️ საწყისი საათი არ შეიძლება იყოს დასასრულის საათზე გვიანი!")
             else:
                 new_lec_record = {
-                    "lector": sel_lector,
+                    "lector": lector_name.strip(),
                     "course": course_name.strip(),
                     "university": university_name.strip(),
                     "start_date": str(start_date),
                     "end_date": str(end_date),
                     "auditorium": sel_auditorium,
-                    "lecture_hours": lecture_hours_input.strip()
+                    "start_hour": start_hour,
+                    "end_hour": end_hour
                 }
                 try:
                     df_new = pd.concat([df_lectures, pd.DataFrame([new_lec_record])], ignore_index=True)
                     df_new.to_csv(LECTURES_FILE, index=False, encoding='utf-8-sig')
-                    log_action(st.session_state.current_user, "ლექციის დაგეგმვა", sel_lector, f"კურსი: {course_name}, აუდიტორია: {sel_auditorium}")
+                    log_action(st.session_state.current_user, "ლექციის დაგეგმვა", lector_name.strip(), f"კურსი: {course_name}, აუდიტორია: {sel_auditorium}, შუალედი: {start_hour}-{end_hour}")
                     st.success("✅ ლექცია წარმატებით დაიგეგმა და აისახა განრიგის ცხრილში!")
                     st.rerun()
                 except Exception as e:
