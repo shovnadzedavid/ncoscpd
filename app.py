@@ -580,18 +580,18 @@ if menu_selection == "📚 სალექციო პროცესის მ
                     try:
                         df_new = pd.concat([df_lectures, pd.DataFrame([new_lec_record])], ignore_index=True)
                         df_new.to_csv(LECTURES_FILE, index=False, encoding='utf-8-sig')
-                        log_action(st.session_state.current_user, "ლექციის დაგეგმვა", lector_name.strip(), f"კურსი: {course_name}, რეჟიმი: {weekend_mode_str}, საათები: {total_calculated_hours}სთ")
+                        log_action(st.session_state.current_user, "ლექციის დაგეგმვა", lector_name.strip(), f"კურსი: {course_name}, რეჟიმი: {weekend_mode_str}, საათები: {total_calculated_hours}სܬ")
                         st.success(f"✅ ლექცია წარმატებით დაიგეგმა! ({weekend_mode_str}) | ჯამური საათები: **{total_calculated_hours} სთ**")
                         st.rerun()
                     except Exception as e:
                         st.error(f"შეცდომა შენახვისას: {e}")
 
 # =========================================================================
-# 📋 ექიმების რეესტრი (სრულად აღდგენილი: რეგისტრაცია, იმპორტი, მართვა)
+# 📋 ექიმების რეესტრი (გაუმჯობესებული სუპერ-სტაბილური იმპორტით)
 # =========================================================================
 elif menu_selection == "ექიმების რეესტრი":
     st.subheader("📋 ექიმების რეესტრი, რეგისტრაცია და მონაცემთა მართვა")
-    st.markdown("<p style='color: #94a3b8;'>მართეთ ექიმთა ბაზა, დაამატეთ ახალი კადრები, ატვირთეთ Excel ፋილები ან შეასწორეთ მონაცემები.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #94a3b8;'>მართეთ ექიმთა ბაზა, დაამატეთ ახალი კადრები, ატვირთეთ CSV/Excel ფაილები ან შეასწორეთ მონაცემები.</p>", unsafe_allow_html=True)
 
     tab_reg, tab_list, tab_import = st.tabs(["➕ ექიმის რეგისტრაცია", "📋 რეესტრი & მართვა / წაშლა", "📁 Excel / CSV იმპორტი"])
 
@@ -639,59 +639,96 @@ elif menu_selection == "ექიმების რეესტრი":
             st.dataframe(df_docs, use_container_width=True, hide_index=True)
 
             st.markdown("---")
-            st.markdown("### 🗑️ ექიმის წაშლა ან მონაცემების განახლება")
+            st.markdown("### 🗑️ ექიმის წაშლა ბაზიდან")
             doc_names = [d["name"] for d in docs_list]
-            selected_doc_to_manage = st.selectbox("აირჩიეთ ექიმი მართვისთვის:", ["--- აირჩიეთ ---"] + doc_names)
+            selected_doc_to_manage = st.selectbox("აირჩიეთ ექიმი წაშლისთვის:", ["--- აირჩიეთ ---"] + doc_names)
 
             if selected_doc_to_manage != "--- აირჩიეთ ---":
-                col_m1, col_m2 = st.columns(2)
-                with col_m1:
-                    if st.button("❌ ექიმის წაშლა ბაზიდან", use_container_width=True):
-                        try:
-                            conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
-                            cursor = conn.cursor()
-                            cursor.execute("DELETE FROM doctors WHERE name = ?", (selected_doc_to_manage,))
-                            conn.commit()
-                            conn.close()
-                            log_action(st.session_state.current_user, "ექიმის წაშლა", selected_doc_to_manage, "ექიმი ამოიშალა რეესტრიდან")
-                            st.success(f"✅ ექიმი **{selected_doc_to_manage}** წაიშალა ბაზიდან!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"შეცდომა წაშლისას: {e}")
+                if st.button("❌ მონიშნული ექიმის წაშლა ბაზიდან", use_container_width=True):
+                    try:
+                        conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
+                        cursor = conn.cursor()
+                        cursor.execute("DELETE FROM doctors WHERE name = ?", (selected_doc_to_manage,))
+                        conn.commit()
+                        conn.close()
+                        log_action(st.session_state.current_user, "ექიმის წაშლა", selected_doc_to_manage, "ექიმი ამოიშალა რეესტრიდან")
+                        st.success(f"✅ ექიმი **{selected_doc_to_manage}** წაიშალა ბაზიდან!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"შეცდომა წაშლისას: {e}")
         else:
             st.info("ℹ️ ექიმთა ბაზა ცარიელია.")
 
-    # 3. Excel / CSV იმპორტის თაბი
+    # 3. Excel / CSV იმპორტის თაბი (უნივერსალური და სუპერ-სტაბილური)
     with tab_import:
         st.markdown("### 📁 მონაცემთა მასობრივი იმპორტი (Excel / CSV)")
-        st.markdown("<p style='color: #94a3b8; font-size: 14px;'>ატვირთეთ ფაილი (CSV ან Excel), რომელიც შეიცავს ექიმების სიას (სავალდებულო სვეტი: <code>name</code>).</p>", unsafe_allow_html=True)
-        uploaded_csv = st.file_uploader("აირჩიეთ ფაილი:", type=["csv", "xlsx"])
-        if uploaded_csv is not None:
+        st.markdown("<p style='color: #94a3b8; font-size: 14px;'>ატვირთეთ ფაილი. სავალდებულო სვეტია <code>name</code> (ასევე სურვილისამებრ: <code>specialty</code>, <code>credits</code>, <code>clinic</code>).</p>", unsafe_allow_html=True)
+        uploaded_file = st.file_uploader("აირჩიეთ CSV ან Excel ფაილი:", type=["csv", "xlsx", "xls"])
+        
+        if uploaded_file is not None:
+            df_imp = None
             try:
-                if uploaded_csv.name.endswith('.csv'):
-                    df_imp = pd.read_csv(uploaded_csv)
+                # ამოვცნოთ ფაილის ტიპი და წავითხოთ უსაფრთხოდ
+                if uploaded_file.name.endswith('.csv'):
+                    # ვცადოთ სხვადასხვა კოდირება და გამყოფი, რომ ათასნაირი ფორმატის CSV უპრობლემოდ გაიხსნას
+                    for enc in ['utf-8-sig', 'utf-8', 'cp1251', 'latin1']:
+                        try:
+                            uploaded_file.seek(0)
+                            df_imp = pd.read_csv(uploaded_file, encoding=enc, sep=None, engine='python')
+                            break
+                        except Exception:
+                            continue
                 else:
-                    df_imp = pd.read_excel(uploaded_csv)
+                    uploaded_file.seek(0)
+                    df_imp = pd.read_excel(uploaded_file)
                 
-                st.write("ატვირთული ფაილის წინასწარი ნახვა:", df_imp.head())
-                if st.button("🚀 მონაცემების ბაზაში ჩატვირთვა", use_container_width=True):
-                    conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
-                    for _, row in df_imp.iterrows():
-                        name = row.get("name", "უცნობი")
-                        spec = row.get("specialty", "ზოგადი")
-                        cred = int(row.get("credits", 30))
-                        clin = row.get("clinic", CLINICS_LIST[0])
-                        conn.execute("""
-                            INSERT OR REPLACE INTO doctors (name, specialty, credits, clinic, expiry_date, last_updated)
-                            VALUES (?, ?, ?, ?, ?, ?)
-                        """, (name, spec, cred, clin, "2028-12-31", datetime.now().strftime("%Y-%m-%d")))
-                    conn.commit()
-                    conn.close()
-                    log_action(st.session_state.current_user, "მასობრივი იმპორტი", uploaded_csv.name, "ფაილიდან მონაცემები აიტვირთა")
-                    st.success("✅ მონაცემები წარმატებით აიტვირთა ბაზაში!")
-                    st.rerun()
+                if df_imp is not None and not df_imp.empty:
+                    # სვეტების სახელების გაწმენდა (spaces-ების მოხსნა)
+                    df_imp.columns = [str(c).strip().lower() for c in df_imp.columns]
+                    
+                    st.success("✅ ფაილი წარმატებით იკითხა! წინასწარი მონაცემები:")
+                    st.dataframe(df_imp.head(), use_container_width=True)
+                    
+                    if "name" not in df_imp.columns:
+                        st.error("🚨 შეცდომა: ატვირთულ ფაილში ვერ მოიძებნა სავალდებულო სვეტი სახელით **name**!")
+                    else:
+                        if st.button("🚀 მონაცემების ბაზაში ჩატვირთვა", use_container_width=True):
+                            conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
+                            cursor = conn.cursor()
+                            success_count = 0
+                            
+                            for _, row in df_imp.iterrows():
+                                name_val = str(row.get("name", "")).strip()
+                                if not name_val or name_val.lower() == 'nan':
+                                    continue
+                                
+                                spec_val = str(row.get("specialty", "ზოგადი პროფილი"))
+                                if spec_val.lower() == 'nan': spec_val = "ზოგადი პროფილი"
+                                
+                                try:
+                                    cred_val = int(row.get("credits", 30))
+                                    if pd.isna(cred_val): cred_val = 30
+                                except:
+                                    cred_val = 30
+                                    
+                                clin_val = str(row.get("clinic", CLINICS_LIST[0]))
+                                if clin_val.lower() == 'nan': clin_val = CLINICS_LIST[0]
+                                
+                                cursor.execute("""
+                                    INSERT OR REPLACE INTO doctors (name, specialty, credits, clinic, expiry_date, last_updated)
+                                    VALUES (?, ?, ?, ?, ?, ?)
+                                """, (name_val, spec_val, cred_val, clin_val, "2028-12-31", datetime.now().strftime("%Y-%m-%d")))
+                                success_count += 1
+                                
+                            conn.commit()
+                            conn.close()
+                            log_action(st.session_state.current_user, "მასობრივი იმპორტი", uploaded_file.name, f"წარმატებით აიტვირთა {success_count} ჩანაწერი")
+                            st.success(f"✅ წარმატებით აიტვირთა და განახლდა **{success_count}** ექიმის მონაცემი!")
+                            st.rerun()
+                else:
+                    st.error("🚨 ატვირთული ფაილი ცარიელია ან ვერ მოხერხდა მისი წაკითხვა.")
             except Exception as e:
-                st.error(f"შეცდომა ფაილის დამუშავებისას: {e}")
+                st.error(f"🚨 კრიტიკული შეცდომა ფაილის დამუშავებისას: {e}")
 
 # =========================================================================
 # მთავარი დაფა & დანარჩენი სექციები
