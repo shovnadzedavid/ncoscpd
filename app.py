@@ -13,24 +13,6 @@ try:
 except Exception:
     PYPDF_AVAILABLE = False
 
-# PDF გენერაციისთვის უსაფრთხო იმპორტი და ქართული ფონტის რეგისტრაცია
-try:
-    from reportlab.lib.pagesizes import letter
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib import colors
-    from reportlab.pdfbase import pdfmetrics
-    from reportlab.pdfbase.ttfonts import TTFont
-    
-    pdfmetrics.registerFont(TTFont('DejaVuSans', '/Library/Fonts/Arial Unicode.ttf'))
-    REPORTLAB_AVAILABLE = True
-except Exception:
-    try:
-        pdfmetrics.registerFont(TTFont('DejaVuSans', '/System/Library/Fonts/Supplemental/Arial.ttf'))
-        REPORTLAB_AVAILABLE = True
-    except Exception:
-        REPORTLAB_AVAILABLE = False
-
 # --- ⚙️ აპლიკაციის კონფიგურაცია ---
 st.set_page_config(
     page_title="NCOS CPD/Academic Programs Portal",
@@ -178,62 +160,6 @@ def extract_text_from_pdf(uploaded_file):
         return text
     except Exception:
         return ""
-
-def generate_lectures_pdf_report(lectures_list, manager_name):
-    if not REPORTLAB_AVAILABLE:
-        return None
-    try:
-        buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=25, leftMargin=25, topMargin=30, bottomMargin=30)
-        elements = []
-        styles = getSampleStyleSheet()
-        
-        title_style = ParagraphStyle('GeorgianTitle', parent=styles['Heading1'], fontName='DejaVuSans', fontSize=16, textColor=colors.HexColor("#1e1b4b"), spaceAfter=10, alignment=1)
-        subtitle_style = ParagraphStyle('GeorgianSubTitle', parent=styles['Normal'], fontName='DejaVuSans', fontSize=9, textColor=colors.HexColor("#475569"), spaceAfter=20, alignment=1)
-        cell_style = ParagraphStyle('GeorgianCell', parent=styles['Normal'], fontName='DejaVuSans', fontSize=8, alignment=1)
-        header_cell_style = ParagraphStyle('GeorgianHeaderCell', parent=styles['Normal'], fontName='DejaVuSans', fontSize=8, textColor=colors.whitesmoke, alignment=1)
-
-        elements.append(Paragraph(f"<b>NCOS CPD/Academic Programs Portal — Lectures Schedule Report</b>", title_style))
-        elements.append(Paragraph(f"<b>გენერირებულია:</b> {datetime.now().strftime('%Y-%m-%d %H:%M')} | <b>პასუხისმგებელი:</b> {manager_name}", subtitle_style))
-        elements.append(Spacer(1, 10))
-        
-        table_data = [[
-            Paragraph("<b>№</b>", header_cell_style),
-            Paragraph("<b>ლექტორი</b>", header_cell_style),
-            Paragraph("<b>კურსი</b>", header_cell_style),
-            Paragraph("<b>უნივერსიტეტი</b>", header_cell_style),
-            Paragraph("<b>აუდიტორია</b>", header_cell_style),
-            Paragraph("<b>დრო / რეჟიმი</b>", header_cell_style),
-            Paragraph("<b>საათები</b>", header_cell_style)
-        ]]
-        
-        for idx, lec in enumerate(lectures_list, 1):
-            time_info = f"{lec.get('start_hour')} - {lec.get('end_hour')}<br/>({lec.get('weekend_mode')})"
-            table_data.append([
-                Paragraph(str(idx), cell_style),
-                Paragraph(str(lec.get('lector', '')), cell_style),
-                Paragraph(str(lec.get('course', '')), cell_style),
-                Paragraph(str(lec.get('university', '')), cell_style),
-                Paragraph(str(lec.get('auditorium', '')), cell_style),
-                Paragraph(time_info, cell_style),
-                Paragraph(str(lec.get('total_hours', '')), cell_style)
-            ])
-            
-        t = Table(table_data, colWidths=[20, 110, 120, 90, 75, 80, 45])
-        t.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#4f46e5")),
-            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('BOTTOMPADDING', (0,0), (-1,0), 6),
-            ('BACKGROUND', (0,1), (-1,-1), colors.HexColor("#f8fafc")),
-            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#cbd5e1")),
-        ]))
-        elements.append(t)
-        doc.build(elements)
-        buffer.seek(0)
-        return buffer.getvalue()
-    except Exception:
-        return None
 
 # --- ავტორიზაცია, სესია და Screen Lock მექანიზმი ---
 if "logged_in" not in st.session_state:
@@ -484,27 +410,23 @@ if menu_selection == "📚 სალექციო პროცესის მ
         matrix_data.append(row)
         
     df_matrix = pd.DataFrame(matrix_data)
-    # სიმაღლის ზრდა (height=380) იმისათვის, რომ სახელები თავისუფლად და სრულად იკითხებოდეს
     st.dataframe(df_matrix, use_container_width=True, hide_index=True, height=380)
 
     st.markdown("---")
 
-    # --- 📥 სალექციო რეპორტის PDF ფაილის გატანა ---
-    st.markdown("### 📥 ლექციების ჩატარების დეტალური რეპორტი (PDF)")
-    st.markdown("<p style='color: #94a3b8; font-size: 14px;'>გადმოწერეთ სრული სალექციო რეპორტი ოფიციალური PDF დოკუმენტის სახით.</p>", unsafe_allow_html=True)
+    # --- 📥 სალექციო რეპორტის CSV ფაილის გატანა (სრულიად სტაბილური) ---
+    st.markdown("### 📥 ლექციების ჩატარების დეტალური რეპორტი (CSV)")
+    st.markdown("<p style='color: #94a3b8; font-size: 14px;'>გადმოწერეთ სრული სალექციო რეპორტი ცხრილის სახით (იხსნება Excel-ში ან ნებისმიერ ტექსტურ რედაქტორში).</p>", unsafe_allow_html=True)
     
     if not df_lectures.empty:
-        pdf_bytes = generate_lectures_pdf_report(df_lectures.to_dict("records"), st.session_state.current_user)
-        if pdf_bytes:
-            st.download_button(
-                label="📥 დეტალური სალექციო რეპორტის გადმოწერა (PDF)",
-                data=pdf_bytes,
-                file_name="Lectures_Detailed_Report.pdf",
-                mime="application/pdf",
-                use_container_width=True
-            )
-        else:
-            st.warning("⚠️ PDF გენერაციისას მოხდა შეფერხება. გთხოვთ შეამოწმოთ ReportLab ბიბლიოთეკა.")
+        csv_data = df_lectures.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig')
+        st.download_button(
+            label="📥 დეტალური სალექციო რეპორტის გადმოწერა (CSV)",
+            data=csv_data,
+            file_name="Lectures_Detailed_Report.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
     else:
         st.info("ℹ️ დაგეგმილი ლექციები ჯერ არ ფიქსირდება ბაზაში.")
 
