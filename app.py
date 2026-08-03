@@ -5,7 +5,6 @@ import sqlite3
 import os
 import io
 import bcrypt
-import urllib.parse
 
 # OCR-ისთვის (ტექსტის ამოცნობა სერთიფიკატებიდან) უსაფრთხო იმპორტი
 try:
@@ -449,7 +448,7 @@ if st.sidebar.button("🚪 სისტემიდან გასვლა", u
     st.rerun()
 
 # =========================================================================
-# 📊 მთავარი დაფა & ანალიტიკა (Mailto ინტეგრაციით)
+# 📊 მთავარი დაფა & ანალიტიკა (სუფთა ვერსია)
 # =========================================================================
 if menu_selection == "მთავარი დაფა & ანალიტიკა":
     st.subheader("📊 მთავარი დაფა — ანალიტიკა და ვიზუალური დიაგრამები")
@@ -466,40 +465,12 @@ if menu_selection == "მთავარი დაფა & ანალიტი
     
     st.markdown("---")
 
-    # --- ✉️ დირექტორებისთვის მეილის გაგზავნის სექცია (mailto ღილაკი) ---
-    st.markdown("### 📧 Executive Digest — ანგარიშის გაგზავნა დირექტორებთან")
-    st.markdown("<p style='color: #94a3b8; font-size: 14px;'>დააჭირეთ ღილაკს, რომ ავტომატურად გაიხსნას ფოსტის პროგრამა მზა ანგარიშით გენერალური და კლინიკური დირექტორებისთვის.</p>", unsafe_allow_html=True)
-    
-    col_d1, col_d2 = st.columns(2)
-    with col_d1:
-        dir_email_1 = st.text_input("გენერალური დირექტორის მეილი:", value="lali.ivanishvili@hospital.ge")
-    with col_d2:
-        dir_email_2 = st.text_input("კლინიკური დირექტორის მეილი:", value="nikoloz.chaduneli@hospital.ge")
-        
-    digest_subject = "NCOS CPD Portal — ყოველკვირეული კლინიკური ანგარიში"
-    digest_body = f"""მოგესალმებით,\n\nგგიზავნით NCOS CPD პორტალის მიმდინარე კვირის შემაჯამებელ მონაცემებს:\n- რეგისტრირებულ ექიმთა რაოდენობა: {len(df_main)}\n- რისკ-ზონაში მყოფი ექიმები (<30 ქულა): {low_count}\n- გენერირებულია: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n\nპატივისცემით,\n{st.session_state.current_user}"""
-    
-    encoded_subj = urllib.parse.quote(digest_subject)
-    encoded_body = urllib.parse.quote(digest_body)
-    recipients = f"{dir_email_1},{dir_email_2}"
-    mailto_link = f"mailto:{recipients}?subject={encoded_subj}&body={encoded_body}"
-    
-    st.markdown(f"""
-        <div style='margin-top: 10px; margin-bottom: 20px;'>
-            <a href='{mailto_link}' target='_blank' style='text-decoration: none;'>
-                <div style='background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; padding: 14px 24px; border-radius: 14px; text-align: center; font-weight: 700; font-size: 16px; box-shadow: 0 10px 25px rgba(79,70,229,0.4); display: block;'>
-                    ✉️ დირექტორებისთვის მეილის გაგზავნა (Mailto)
-                </div>
-            </a>
-        </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("---")
-
     # --- 📢 გლობალური Alert-ის გაგზავნა ---
     st.markdown("### 📢 გლობალური შეტყობინება / Broadcast Alert მენეჯმენტიდან")
+    st.markdown("<p style='color: #94a3b8; font-size: 14px;'>ჩაწერეთ ტექსტი ქვემოთ მოცემულ ველში და გაგზავნეთ — შეტყობინება მყისიერად გამოჩნდება სისტემის ყველა მომხმარებელთან.</p>", unsafe_allow_html=True)
+    
     with st.form("broadcast_alert_form"):
-        broadcast_text = st.text_area("შეტყობინების ტექსტი:", placeholder="გააფრთხილეთ პერსონალი მნიშვნელოვანი ცვლილების შესახებ...")
+        broadcast_text = st.text_area("შეტყობინების ტექსტი:", placeholder="გააფრთხილეთ პერსონალი მნიშვნელოვანი ცვლილების ან ღონისძიების შესახებ...")
         submit_alert = st.form_submit_button("📢 ერთიანი Alert-ის გაგზავნა", use_container_width=True)
         
         if submit_alert:
@@ -517,13 +488,14 @@ if menu_selection == "მთავარი დაფა & ანალიტი
                         df_alt = pd.DataFrame([new_alert_record])
                     df_alt.to_csv(ALERTS_FILE, index=False, encoding='utf-8-sig')
                     log_action(st.session_state.current_user, "Broadcast Alert", "ყველა მომხმარებელი", broadcast_text.strip())
-                    st.success("✅ განგაში/შეტყობინება წარმატებით გაიგზავნა!")
+                    st.success("✅ განგაში/შეტყობინება წარმატებით გაიგზავნა და აისახა სისტემაში!")
                 except Exception as e:
-                    st.error(f"შეცდომა: {e}")
+                    st.error(f"შეცდომა შეტყობინების გაგზავნისას: {e}")
             else:
                 st.warning("⚠️ გთხოვთ, შეიყვანოთ შეტყობინების ტექსტი!")
 
     st.markdown("---")
+
     if not df_main.empty:
         st.markdown("### 📈 დეპარტამენტებისა და სპეციალობების ანალიტიკური დიაგრამები")
         g_col1, g_col2 = st.columns(2)
@@ -533,8 +505,69 @@ if menu_selection == "მთავარი დაფა & ანალიტი
         with g_col2:
             st.markdown("#### 🩺 ექიმების რაოდენობა სპეციალობების მიხედვით")
             st.bar_chart(df_main["specialty"].value_counts())
+    
+    st.markdown("---")
+    board_col1, board_col2 = st.columns(2)
 
-# დანარჩენი მენიუები (ექიმის პორტალი, აკრედიტებული კურსები, მატრიცა, რისკ-ჯგუფები, რეესტრი, აუდიტი, სეთინგები) უცვლელად გრძელდება...
+    with board_col1:
+        st.markdown("<div class='board-card'>", unsafe_allow_html=True)
+        st.markdown("""
+            <div>
+                <h3>⚡ ექიმებისთვის კრედიტქულების დამატება</h3>
+                <p style='color: #94a3b8; font-size: 14px;'>აირჩიეთ ექიმი და სწრაფად მიანიჭეთ ან ჩამოაჭერით კრედიტქულები.</p>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        if doctors_data:
+            doc_names = [d["name"] for d in doctors_data]
+            selected_doc_for_points = st.selectbox("აირჩიეთ ექიმი:", doc_names, key="main_pts_select_board")
+            target_doc_main = next((d for d in doctors_data if d["name"] == selected_doc_for_points), None)
+            
+            if target_doc_main:
+                st.markdown(f"**მიმდინარე ბალანსი:** `{target_doc_main['credits']}` ქულა | **კლინიკა:** {target_doc_main['clinic']}")
+                
+                with st.form("main_points_form_board"):
+                    pts_change = st.number_input("ქულების ოდენობა:", min_value=1, max_value=50, value=10)
+                    action_type = st.radio("ოპერაცია:", ["ქულების დამატება (+)", "ქულების წაშლა (-)"], horizontal=True)
+                    reason_text = st.text_input("ოპერაციის მიზეზი / სასწავლო კურსი:")
+                    submit_main_pts = st.form_submit_button("💾 ქულების განახლება ბაზაში", use_container_width=True)
+                    
+                    if submit_main_pts:
+                        old_creds = target_doc_main['credits']
+                        new_credits = old_creds + pts_change if "დამატება" in action_type else max(0, old_creds - pts_change)
+                        try:
+                            conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
+                            cursor = conn.cursor()
+                            cursor.execute("UPDATE doctors SET credits = ?, last_updated = ? WHERE id = ?", (new_credits, str(datetime.now()), target_doc_main['id']))
+                            conn.commit()
+                            conn.close()
+                            
+                            action_label = "ქულების დამატება" if "დამატება" in action_type else "ქულების წაშლა"
+                            log_action(st.session_state.current_user, action_label, target_doc_main['name'], f"რაოდენობა: {pts_change}, მიზეზი: {reason_text}. ახალი ჯამი: {new_credits}")
+                            log_credits_history(target_doc_main['name'], old_creds, new_credits, st.session_state.current_user, reason_text)
+                            st.cache_data.clear()
+                            st.success("✅ კრედიტქულები წარმატებით განახლდა!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"შეცდომა ბაზასთან მიმართვისას: {e}")
+        else:
+            st.info("ექიმები არ არის რეგისტრირებული.")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with board_col2:
+        st.markdown("<div class='board-card'>", unsafe_allow_html=True)
+        st.markdown("""
+            <div>
+                <h3>📌 ინფორმაცია მონიტორინგზე</h3>
+                <p style='color: #94a3b8; font-size: 15px;'>რისკის ქვეშ მყოფი ექიმების სია (<30 კრედიტი) გადატანილია ცალკე ქვე-ტაბში:</p>
+                <p style='color: #818cf8; font-size: 15px; font-weight: 700;'>👉 ექიმების რეესტრი ➔ „🚨 რისკის ქვეშ მყოფი ექიმები“</p>
+            </div>
+        """, unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+# =========================================================================
+# დანარჩენი მენიუები
+# =========================================================================
 elif menu_selection == "👤 ექიმის პირადი პორტალი":
     st.subheader("👤 ექიმის პირადი პორტალი (Doctor Self-Service)")
     all_docs_portal = fetch_doctors()
