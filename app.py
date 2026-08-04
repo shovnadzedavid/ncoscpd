@@ -266,11 +266,12 @@ if st.session_state.screen_locked:
     render_login(is_lock_screen=True)
     st.stop()
 
-# --- 💎 დინამიკური თემების CSS სტილები (Dark & Light Modes) ---
+# --- 💎 აბსოლუტური და დამოუკიდებელი თემების CSS სტილები (Dark & Light Modes Override) ---
 is_dark = st.session_state.app_theme == "Dark (მუქი)"
 
 if is_dark:
-    bg_color = "radial-gradient(circle at 15% 15%, #070d1d 0%, #030712 50%, #020408 100%)"
+    bg_color = "#030712"
+    app_bg = "radial-gradient(circle at 15% 15%, #070d1d 0%, #030712 50%, #020408 100%)"
     text_color = "#f8fafc"
     header_bg = "linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.85) 100%)"
     card_bg = "linear-gradient(145deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.8) 100%)"
@@ -278,58 +279,88 @@ if is_dark:
     subtext_color = "#94a3b8"
     sidebar_label_bg = "rgba(30, 41, 59, 0.4)"
     sidebar_label_hover = "linear-gradient(135deg, rgba(79, 70, 229, 0.3) 0%, rgba(99, 102, 241, 0.4) 100%)"
+    input_bg = "#1e293b"
+    input_text = "#f8fafc"
 else:
-    bg_color = "radial-gradient(circle at 15% 15%, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%)"
+    bg_color = "#f8fafc"
+    app_bg = "radial-gradient(circle at 15% 15%, #ffffff 0%, #f1f5f9 50%, #e2e8f0 100%)"
     text_color = "#0f172a"
-    header_bg = "linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(241, 245, 249, 0.95) 100%)"
-    card_bg = "linear-gradient(145deg, rgba(255, 255, 255, 0.9) 0%, rgba(241, 245, 249, 0.95) 100%)"
-    sidebar_bg = "linear-gradient(180deg, #e2e8f0 0%, #cbd5e1 50%, #94a3b8 100%)"
+    header_bg = "linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(241, 245, 249, 0.95) 100%)"
+    card_bg = "linear-gradient(145deg, rgba(255, 255, 255, 0.95) 0%, rgba(241, 245, 249, 0.95) 100%)"
+    sidebar_bg = "linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 50%, #cbd5e1 100%)"
     subtext_color = "#334155"
-    sidebar_label_bg = "rgba(255, 255, 255, 0.8)"
+    sidebar_label_bg = "rgba(255, 255, 255, 0.9)"
     sidebar_label_hover = "linear-gradient(135deg, rgba(79, 70, 229, 0.2) 0%, rgba(99, 102, 241, 0.3) 100%)"
+    input_bg = "#ffffff"
+    input_text = "#0f172a"
 
 st.markdown(f"""
     <style>
         .stApp {{
-            background: {bg_color} !important;
+            background: {app_bg} !important;
             color: {text_color} !important;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }}
         .main {{ background: transparent !important; }}
+        
+        /* ტექსტებისა და ეტიკეტების აბსოლუტური კონტროლი */
+        p, span, label, div, h1, h2, h3, h4, h5, h6 {{
+            color: {text_color} !important;
+        }}
+        
         .header-card {{
             background: {header_bg};
             padding: 30px; border-radius: 20px;
             border: 1px solid rgba(129, 140, 248, 0.25); border-left: 8px solid #6366f1;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
             margin-bottom: 25px; backdrop-filter: blur(20px);
         }}
+        .header-card * {{
+            color: inherit !important;
+        }}
+        
         .login-card-container {{
             background: {card_bg};
             padding: 30px 20px; border-radius: 20px; border: 1px solid rgba(129, 140, 248, 0.3);
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3); width: 100%; margin: 10px auto; position: relative; overflow: hidden; text-align: center;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2); width: 100%; margin: 10px auto; position: relative; overflow: hidden; text-align: center;
         }}
-        .login-title {{ color: {text_color}; text-align: center; font-size: 22px; font-weight: 800; margin-bottom: 6px; }}
-        .login-subtitle {{ color: {subtext_color}; text-align: center; font-size: 13px; margin-bottom: 0px; }}
+        .login-title {{ color: {text_color} !important; text-align: center; font-size: 22px; font-weight: 800; margin-bottom: 6px; }}
+        .login-subtitle {{ color: {subtext_color} !important; text-align: center; font-size: 13px; margin-bottom: 0px; }}
+        
+        /* საიდბარის სრული სტილიზაცია */
         section[data-testid="stSidebar"] {{
             background: {sidebar_bg} !important;
             border-right: 1px solid rgba(129, 140, 248, 0.2); padding-top: 10px;
         }}
+        section[data-testid="stSidebar"] * {{
+            color: {text_color} !important;
+        }}
         section[data-testid="stSidebar"] .stRadio label {{
             background: {sidebar_label_bg}; border-radius: 12px; padding: 10px 14px !important;
-            border: 1px solid rgba(129, 140, 248, 0.15); width: 100% !important; display: flex !important; align-items: center !important; cursor: pointer; transition: all 0.3s ease;
+            border: 1px solid rgba(129, 140, 248, 0.2); width: 100% !important; display: flex !important; align-items: center !important; cursor: pointer; transition: all 0.3s ease;
             color: {text_color} !important; font-weight: 600;
         }}
         section[data-testid="stSidebar"] .stRadio label:hover {{
             background: {sidebar_label_hover};
             border-color: rgba(129, 140, 248, 0.6);
         }}
+        
+        /* ინპუტების, სელექტების და ტექსტ-ფილდების კონტრასტი */
+        input, textarea, select {{
+            background-color: {input_bg} !important;
+            color: {input_text} !important;
+        }}
+        
         .stButton > button {{
             border-radius: 12px !important; font-weight: 700 !important; font-size: 15px !important; padding: 10px 16px !important;
             border: 1px solid rgba(129, 140, 248, 0.5) !important; background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%) !important; color: white !important; box-shadow: 0 8px 20px rgba(79, 70, 229, 0.4);
         }}
         [data-testid="stMetric"] {{
             background: {card_bg};
-            padding: 18px; border-radius: 16px; border: 1px solid rgba(129, 140, 248, 0.25); box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            padding: 18px; border-radius: 16px; border: 1px solid rgba(129, 140, 248, 0.25); box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }}
+        [data-testid="stMetric"] * {{
+            color: {text_color} !important;
         }}
     </style>
 """, unsafe_allow_html=True)
