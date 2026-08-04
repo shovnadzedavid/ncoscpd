@@ -43,6 +43,8 @@ def init_database():
     try:
         conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
         cursor = conn.cursor()
+        
+        # ექიმების ცხრილს ვამატებთ password სვეტს, რომ პირდაპირ იქ შეინახოს რეგისტრირებული ექიმის პაროლი
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS doctors (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -52,6 +54,7 @@ def init_database():
                 clinic TEXT,
                 email TEXT,
                 phone TEXT,
+                password TEXT,
                 notes TEXT,
                 expiry_date TEXT,
                 certificate_path TEXT,
@@ -59,6 +62,12 @@ def init_database():
             )
         ''')
         
+        # მიგრაცია ძველი ბაზისთვის (თუ password სვეტი არ ჰქონდა)
+        cursor.execute("PRAGMA table_info(doctors)")
+        doc_columns = [col[1] for col in cursor.fetchall()]
+        if 'password' not in doc_columns:
+            cursor.execute("ALTER TABLE doctors ADD COLUMN password TEXT")
+
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS settings (
                 manager_login TEXT PRIMARY KEY,
@@ -67,19 +76,6 @@ def init_database():
                 role TEXT
             )
         ''')
-        
-        cursor.execute("PRAGMA table_info(settings)")
-        columns = [col[1] for col in cursor.fetchall()]
-        if 'display_name' not in columns or 'role' not in columns:
-            cursor.execute("DROP TABLE settings")
-            cursor.execute('''
-                CREATE TABLE settings (
-                    manager_login TEXT PRIMARY KEY,
-                    display_name TEXT,
-                    password TEXT,
-                    role TEXT
-                )
-            ''')
 
         default_pass_hash = hash_password("123")
         default_users = {
@@ -123,6 +119,8 @@ def fetch_doctors():
                 df["notes"] = "შენიშვნა არ არის"
             if "certificate_path" not in df.columns:
                 df["certificate_path"] = ""
+            if "password" not in df.columns:
+                df["password"] = ""
         return df.to_dict("records")
     except Exception as e:
         st.error(f"ექიმების ბაზის წაკითხვის შეფერხება: {e}")
@@ -245,31 +243,35 @@ def render_login(is_lock_screen=False):
                         try:
                             conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
                             cur = conn.cursor()
-                            # ვეძებთ პირდაპირ settings ცხრილში
-                            cur.execute("SELECT display_name, password, role FROM settings WHERE manager_login = ?", (input_clean,))
-                            found_setting = cur.fetchone()
                             
-                            # თუ settings-ში ვერ მოიძებნა, ვეძებთ doctors ცხრილში ელ-ფოსტით
-                            if not found_setting:
-                                cur.execute("SELECT name, email FROM doctors WHERE email = ?", (input_clean,))
+                            # 1. ვამოწმებთ მენეჯერების/დირექტორების ბაზაში (settings)
+                            cur.execute("SELECT display_name, password, role FROM settings WHERE manager_login = ?", (input_clean,))
+                            found_user = cur.fetchone()
+                            
+                            user_role = "manager"
+                            if found_user:
+                                display_name, actual_pass_hash, user_role = found_user
+                            else:
+                                # 2. თუ settings-ში არ არის, ვეძებთ ექიმების ბაზაში (doctors) ელ-ფოსტით
+                                cur.execute("SELECT name, password FROM doctors WHERE LOWER(email) = ?", (input_clean,))
                                 doc_row = cur.fetchone()
                                 if doc_row:
-                                    # თუ ექიმია, მაგრამ პაროლი settings-ში არ იძებნებოდა, ვამოწმებთ ან ვქმნით
-                                    cur.execute("SELECT display_name, password, role FROM settings WHERE display_name = ?", (doc_row[0],))
-                                    found_setting = cur.fetchone()
+                                    display_name, actual_pass_hash = doc_row
+                                    user_role = "doctor"
+                                else:
+                                    display_name, actual_pass_hash = None, None
                             
                             conn.close()
                             
-                            if found_setting:
-                                display_name, actual_pass_hash, user_role = found_setting
+                            if display_name and actual_pass_hash:
                                 if check_password(password_input, actual_pass_hash):
                                     st.session_state.logged_in = True
                                     st.session_state.screen_locked = False
                                     st.session_state.current_user = display_name
-                                    st.session_state.current_role = user_role if user_role else "doctor"
+                                    st.session_state.current_role = user_role
                                     st.session_state.login_time = datetime.now()
                                     st.query_params["auth_user"] = display_name
-                                    st.query_params["auth_role"] = st.session_state.current_role
+                                    st.query_params["auth_role"] = user_role
                                     st.success("✅ ავტორიზაცია წარმატებულია!")
                                     st.rerun()
                                 else:
@@ -302,22 +304,15 @@ def render_login(is_lock_screen=False):
                             st.error("❌ პაროლები ერთმანეთს არ ემთხვევა!")
                         else:
                             try:
+                                pass_hash = hash_password(reg_pass)
                                 conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
                                 cursor = conn.cursor()
                                 
-                                # 1. ვინახავთ doctors რეესტრში
+                                # ვინახავთ ექიმს doctors ცხრილში პაროლიანად
                                 cursor.execute("""
-                                    INSERT OR REPLACE INTO doctors (name, specialty, credits, clinic, email, phone, notes, expiry_date, last_updated)
-                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                                """, (reg_name.strip(), reg_spec, 30, reg_clinic, reg_email.strip(), reg_phone.strip(), "თვითრეგისტრირებული ექიმი", "2028-12-31", datetime.now().strftime("%Y-%m-%d")))
-                                
-                                # 2. ვინახავთ settings ცხრილშიც, რომ ლოგინით და პაროლით შესვლა უპრობლემოდ შეძლო
-                                pass_hash = hash_password(reg_pass)
-                                exact_login = reg_email.strip().lower()
-                                cursor.execute("""
-                                    INSERT OR REPLACE INTO settings (manager_login, display_name, password, role) 
-                                    VALUES (?, ?, ?, ?)
-                                """, (exact_login, reg_name.strip(), pass_hash, "doctor"))
+                                    INSERT OR REPLACE INTO doctors (name, specialty, credits, clinic, email, phone, password, notes, expiry_date, last_updated)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                """, (reg_name.strip(), reg_spec, 30, reg_clinic, reg_email.strip(), reg_phone.strip(), pass_hash, "თვითრეგისტრირებული ექიმი", "2028-12-31", datetime.now().strftime("%Y-%m-%d")))
                                 
                                 conn.commit()
                                 conn.close()
