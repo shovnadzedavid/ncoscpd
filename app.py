@@ -303,7 +303,6 @@ st.markdown(f"""
         }}
         .main {{ background: transparent !important; }}
         
-        /* ტექსტებისა და ეტიკეტების აბსოლუტური კონტროლი */
         p, span, label, div, h1, h2, h3, h4, h5, h6 {{
             color: {text_color} !important;
         }}
@@ -327,7 +326,6 @@ st.markdown(f"""
         .login-title {{ color: {text_color} !important; text-align: center; font-size: 22px; font-weight: 800; margin-bottom: 6px; }}
         .login-subtitle {{ color: {subtext_color} !important; text-align: center; font-size: 13px; margin-bottom: 0px; }}
         
-        /* საიდბარის სრული სტილიზაცია და თემის გადამრთველის დაცვა */
         section[data-testid="stSidebar"] {{
             background: {sidebar_bg} !important;
             border-right: 1px solid rgba(129, 140, 248, 0.2); padding-top: 10px;
@@ -336,7 +334,6 @@ st.markdown(f"""
             color: {text_color} !important;
         }}
         
-        /* Selectbox (Dropdown) ფერების და ტექსტების მკაცრი გაწერა */
         div[data-baseweb="select"] > div {{
             background-color: {input_bg} !important;
             color: {input_text} !important;
@@ -356,7 +353,6 @@ st.markdown(f"""
             border-color: rgba(129, 140, 248, 0.6);
         }}
         
-        /* ინპუტების, სელექტების და ტექსტ-ფილდების კონტრასტი */
         input, textarea, select {{
             background-color: {input_bg} !important;
             color: {input_text} !important;
@@ -660,7 +656,7 @@ elif menu_selection == "ექიმების რეესტრი":
                     except Exception as e:
                         st.error(f"შეცდომა წაშლისას: {e}")
                 else:
-                    st.warning("⚠️ არცერთი ექიმი არ არის მონიშნული დასაშლელად! მონიშნეთ სასურველი სტრიქონები Checkbox-ით.")
+                    st.warning("⚠️ არცერთი ექიმი არ არის მონიშნული დასაშელად! მონიშნეთ სასურველი სტრიქონები Checkbox-ით.")
         else:
             st.info("ℹ️ ექიმთა ბაზა ცარიელია.")
 
@@ -818,15 +814,44 @@ elif menu_selection == "მთავარი დაფა & ანალიტ�
 
 elif menu_selection == "👤 ექიმის პირადი პორტალი":
     st.subheader("👤 ექიმის პირადი პორტალი (Doctor Self-Service)")
-    all_docs_portal = fetch_doctors()
-    if all_docs_portal:
-        my_name = st.selectbox("აირჩიეთ თქვენი სახელი რეესტრიდან:", [d["name"] for d in all_docs_portal])
-        my_profile = next((d for d in all_docs_portal if d["name"] == my_name), None)
-        if my_profile:
-            c1, c2, c3 = st.columns(3)
-            c1.metric("მიმდინარე კრედიტები", my_profile["credits"])
-            c2.metric("კლინიკა", my_profile["clinic"])
-            c3.metric("ლიცენზიის ვადა", my_profile["expiry_date"])
+    st.markdown(f"<p style='color: {subtext_color};'>შეიყვანეთ თქვენი სამსახურის ბაზაში რეგისტრირებული ელ-ფოსტა ან ტელეფონის ნომერი თქვენი კრედიტებისა და ლიცენზიის ვადების შესამოწმებლად.</p>", unsafe_allow_html=True)
+
+    with st.form("doctor_portal_auth_form"):
+        doc_identity = st.text_input("📧 შეიყვანეთ თქვენი ელ-ფოსტა ან ტელეფონი:", placeholder="მაგ: doctor@edumed.ge ან +995...")
+        check_status_btn = st.form_submit_button("🔍 ჩემი მონაცემების ნახვა", use_container_width=True)
+
+        if check_status_btn:
+            if not doc_identity.strip():
+                st.error("⚠️ გთხოვთ მიუთითოთ ელ-ფოსტა ან ტელეფონის ნომერი!")
+            else:
+                try:
+                    conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        SELECT name, specialty, credits, clinic, email, phone, expiry_date, notes 
+                        FROM doctors 
+                        WHERE email LIKE ? OR phone LIKE ?
+                    """, (f"%{doc_identity.strip()}%", f"%{doc_identity.strip()}%"))
+                    doc_record = cursor.fetchone()
+                    conn.close()
+
+                    if doc_record:
+                        st.success("✅ მონაცემები წარმატებით მოიძებნა და სინქრონიზებულია რეესტრიდან!")
+                        
+                        d_name, d_spec, d_cred, d_clin, d_email, d_phone, d_exp, d_notes = doc_record
+                        
+                        st.markdown(f"### 👤 ექიმი: <span style='color: #818cf8;'>{d_name}</span>", unsafe_allow_html=True)
+                        
+                        col_p1, col_p2, col_p3 = st.columns(3)
+                        col_p1.metric("⭐ მიმდინარე კრედიტები", d_cred)
+                        col_p2.metric("🏥 კლინიკა", d_clin)
+                        col_p3.metric("⏳ ლიცენზიის ვადა", d_exp)
+                        
+                        st.info(f"🩺 **სპეციალობა:** {d_spec}  \n📧 **ელ-ფოსტა:** {d_email}  \n📞 **ტელეფონი:** {d_phone}  \n📝 **შენიშვნა:** {d_notes}")
+                    else:
+                        st.warning("⚠️ მითითებული მონაცემებით ექიმი რეესტრში ვერ მოიძებნა. გთხოვთ მიმართოთ ადმინისტრატორს.")
+                except Exception as e:
+                    st.error(f"ტექნიკური შეცდომა ძიებისას: {e}")
 
 elif menu_selection == "🩺 სპეციალობების & კრედიტების მატრიცა":
     col_top, col_btn = st.columns([11, 1])
