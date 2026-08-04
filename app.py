@@ -177,6 +177,8 @@ if "active_view_date" not in st.session_state:
     st.session_state.active_view_date = datetime.today().date()
 if "app_theme" not in st.session_state:
     st.session_state.app_theme = "Dark (მუქი)"
+if "show_register" not in st.session_state:
+    st.session_state.show_register = False
 
 query_params = st.query_params
 if not st.session_state.logged_in and "auth_user" in query_params and "auth_role" in query_params:
@@ -231,32 +233,86 @@ def render_login(is_lock_screen=False):
                 else:
                     st.error("❌ არასწორი პაროლი!")
         else:
-            login_input = st.text_input("👤 ლოგინი:", placeholder="შეიყვანეთ ლოგინი ლათინურად", key="login_field", autocomplete="off")
-            password_input = st.text_input("🔑 პაროლი:", type="password", key="pass_field", autocomplete="new-password")
-            
-            st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
-            if st.button("🚀 სისტემაში შესვლა", use_container_width=True):
-                if not df_sets.empty:
-                    user_row = df_sets[df_sets["manager_login"] == login_input.strip().lower()]
-                    if not user_row.empty:
-                        actual_pass_hash = user_row["password"].values[0]
-                        display_name = user_row["display_name"].values[0]
-                        user_role = user_row["role"].values[0] if "role" in user_row.columns else "manager"
-                        
-                        if check_password(password_input, actual_pass_hash):
-                            st.session_state.logged_in = True
-                            st.session_state.screen_locked = False
-                            st.session_state.current_user = display_name
-                            st.session_state.current_role = user_role
-                            st.session_state.login_time = datetime.now()
-                            st.query_params["auth_user"] = display_name
-                            st.query_params["auth_role"] = user_role
-                            st.success("✅ ავტორიზაცია წარმატებულია!")
-                            st.rerun()
+            if not st.session_state.show_register:
+                login_input = st.text_input("👤 ლოგინი / ელ-ფოსტა:", placeholder="შეიყვანეთ ლოგინი ან ელ-ფოსტა", key="login_field", autocomplete="off")
+                password_input = st.text_input("🔑 პაროლი:", type="password", key="pass_field", autocomplete="new-password")
+                
+                st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
+                if st.button("🚀 სისტემაში შესვლა", use_container_width=True):
+                    if not df_sets.empty:
+                        user_row = df_sets[df_sets["manager_login"] == login_input.strip().lower()]
+                        if not user_row.empty:
+                            actual_pass_hash = user_row["password"].values[0]
+                            display_name = user_row["display_name"].values[0]
+                            user_role = user_row["role"].values[0] if "role" in user_row.columns else "manager"
+                            
+                            if check_password(password_input, actual_pass_hash):
+                                st.session_state.logged_in = True
+                                st.session_state.screen_locked = False
+                                st.session_state.current_user = display_name
+                                st.session_state.current_role = user_role
+                                st.session_state.login_time = datetime.now()
+                                st.query_params["auth_user"] = display_name
+                                st.query_params["auth_role"] = user_role
+                                st.success("✅ ავტორიზაცია წარმატებულია!")
+                                st.rerun()
+                            else:
+                                st.error("❌ არასწორი პაროლი!")
                         else:
-                            st.error("❌ არასწორი პაროლი!")
-                    else:
-                        st.error("❌ მითითებული ლოგინი არ მოიძებნა ბაზაში!")
+                            st.error("❌ მითითებული ლოგინი არ მოიძებნა ბაზაში!")
+                
+                st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
+                if st.button("📝 ექიმის რეგისტრაცია", use_container_width=True, type="secondary"):
+                    st.session_state.show_register = True
+                    st.rerun()
+            else:
+                st.markdown("### 🩺 ექიმის თვითრეგისტრაცია სისტემაში")
+                with st.form("doctor_self_reg_form"):
+                    reg_name = st.text_input("👤 სახელი და გვარი (* სავალდებულო):", placeholder="მაგ: გიორგი ბერიძე")
+                    reg_spec = st.text_input("🩺 სპეციალობა:", placeholder="მაგ: თერაპია / კარდიოლოგია")
+                    reg_clinic = st.selectbox("🏥 კლინიკა:", CLINICS_LIST)
+                    reg_email = st.text_input("📧 ელ-ფოსტა:", placeholder="doctor@edumed.ge")
+                    reg_phone = st.text_input("📞 ტელეფონი:", placeholder="+995 599 00 00 00")
+                    reg_pass = st.text_input("🔑 პაროლი:", type="password")
+                    reg_pass_conf = st.text_input("🔑 პაროლის დადასტურება:", type="password")
+                    
+                    submitted_reg = st.form_submit_button("💾 რეგისტრაციის დასრულება", use_container_width=True)
+                    if submitted_reg:
+                        if not reg_name.strip() or not reg_email.strip() or not reg_pass.strip():
+                            st.error("⚠️ გთხოვთ შეავსოთ სავალდებულო ველები (სახელი, ელ-ფოსტა, პაროლი)!")
+                        elif reg_pass != reg_pass_conf:
+                            st.error("❌ პაროლები ერთმანეთს არ ემთხვევა!")
+                        else:
+                            try:
+                                conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
+                                cursor = conn.cursor()
+                                # ვინახავთ ექიმს რეესტრში საწყისი 0 ან 30 კრედიტით
+                                cursor.execute("""
+                                    INSERT OR REPLACE INTO doctors (name, specialty, credits, clinic, email, phone, notes, expiry_date, last_updated)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                """, (reg_name.strip(), reg_spec, 30, reg_clinic, reg_email.strip(), reg_phone.strip(), "თვითრეგისტრირებული ექიმი", "2028-12-31", datetime.now().strftime("%Y-%m-%d")))
+                                
+                                # ვინახავთ პაროლსაც settings ცხრილში, რომ ექიმმა პორტალში შესვლა შეძლოს
+                                pass_hash = hash_password(reg_pass)
+                                clean_login = reg_email.strip().lower().replace("@", "").replace(".", "")
+                                cursor.execute("""
+                                    INSERT OR REPLACE INTO settings (manager_login, display_name, password, role) 
+                                    VALUES (?, ?, ?, ?)
+                                """, (clean_login, reg_name.strip(), pass_hash, "doctor"))
+                                
+                                conn.commit()
+                                conn.close()
+                                
+                                log_action(reg_name.strip(), "ექიმის თვითრეგისტრაცია", reg_name.strip(), f"კლინიკა: {reg_clinic}")
+                                st.success("✅ რეგისტრაცია წარმატებით დასრულდა! ახლა შეგიძლიათ სისტემაში შესვლა.")
+                                st.session_state.show_register = False
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"ტექნიკური შეცდომა რეგისტრაციისას: {e}")
+                
+                if st.button("⬅️ უკან შესვლის ფანჯარაში", use_container_width=True, type="secondary"):
+                    st.session_state.show_register = False
+                    st.rerun()
 
 if not st.session_state.logged_in:
     render_login(is_lock_screen=False)
@@ -656,7 +712,7 @@ elif menu_selection == "ექიმების რეესტრი":
                     except Exception as e:
                         st.error(f"შეცდომა წაშლისას: {e}")
                 else:
-                    st.warning("⚠️ არცერთი ექიმი არ არის მონიშნული დასაშელად! მონიშნეთ სასურველი სტრიქონები Checkbox-ით.")
+                    st.warning("⚠️ არცერთი ექიმი არ არის მონიშნული დასაშლელად! მონიშნეთ სასურველი სტრიქონები Checkbox-ით.")
         else:
             st.info("ℹ️ ექიმთა ბაზა ცარიელია.")
 
@@ -814,44 +870,15 @@ elif menu_selection == "მთავარი დაფა & ანალიტ�
 
 elif menu_selection == "👤 ექიმის პირადი პორტალი":
     st.subheader("👤 ექიმის პირადი პორტალი (Doctor Self-Service)")
-    st.markdown(f"<p style='color: {subtext_color};'>შეიყვანეთ თქვენი სამსახურის ბაზაში რეგისტრირებული ელ-ფოსტა ან ტელეფონის ნომერი თქვენი კრედიტებისა და ლიცენზიის ვადების შესამოწმებლად.</p>", unsafe_allow_html=True)
-
-    with st.form("doctor_portal_auth_form"):
-        doc_identity = st.text_input("📧 შეიყვანეთ თქვენი ელ-ფოსტა ან ტელეფონი:", placeholder="მაგ: doctor@edumed.ge ან +995...")
-        check_status_btn = st.form_submit_button("🔍 ჩემი მონაცემების ნახვა", use_container_width=True)
-
-        if check_status_btn:
-            if not doc_identity.strip():
-                st.error("⚠️ გთხოვთ მიუთითოთ ელ-ფოსტა ან ტელეფონის ნომერი!")
-            else:
-                try:
-                    conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
-                    cursor = conn.cursor()
-                    cursor.execute("""
-                        SELECT name, specialty, credits, clinic, email, phone, expiry_date, notes 
-                        FROM doctors 
-                        WHERE email LIKE ? OR phone LIKE ?
-                    """, (f"%{doc_identity.strip()}%", f"%{doc_identity.strip()}%"))
-                    doc_record = cursor.fetchone()
-                    conn.close()
-
-                    if doc_record:
-                        st.success("✅ მონაცემები წარმატებით მოიძებნა და სინქრონიზებულია რეესტრიდან!")
-                        
-                        d_name, d_spec, d_cred, d_clin, d_email, d_phone, d_exp, d_notes = doc_record
-                        
-                        st.markdown(f"### 👤 ექიმი: <span style='color: #818cf8;'>{d_name}</span>", unsafe_allow_html=True)
-                        
-                        col_p1, col_p2, col_p3 = st.columns(3)
-                        col_p1.metric("⭐ მიმდინარე კრედიტები", d_cred)
-                        col_p2.metric("🏥 კლინიკა", d_clin)
-                        col_p3.metric("⏳ ლიცენზიის ვადა", d_exp)
-                        
-                        st.info(f"🩺 **სპეციალობა:** {d_spec}  \n📧 **ელ-ფოსტა:** {d_email}  \n📞 **ტელეფონი:** {d_phone}  \n📝 **შენიშვნა:** {d_notes}")
-                    else:
-                        st.warning("⚠️ მითითებული მონაცემებით ექიმი რეესტრში ვერ მოიძებნა. გთხოვთ მიმართოთ ადმინისტრატორს.")
-                except Exception as e:
-                    st.error(f"ტექნიკური შეცდომა ძიებისას: {e}")
+    all_docs_portal = fetch_doctors()
+    if all_docs_portal:
+        my_name = st.selectbox("აირჩიეთ თქვენი სახელი რეესტრიდან:", [d["name"] for d in all_docs_portal])
+        my_profile = next((d for d in all_docs_portal if d["name"] == my_name), None)
+        if my_profile:
+            c1, c2, c3 = st.columns(3)
+            c1.metric("მიმდინარე კრედიტები", my_profile["credits"])
+            c2.metric("კლინიკა", my_profile["clinic"])
+            c3.metric("ლიცენზიის ვადა", my_profile["expiry_date"])
 
 elif menu_selection == "🩺 სპეციალობების & კრედიტების მატრიცა":
     col_top, col_btn = st.columns([11, 1])
