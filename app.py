@@ -43,8 +43,6 @@ def init_database():
     try:
         conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
         cursor = conn.cursor()
-        
-        # ექიმების ცხრილს ვამატებთ password სვეტს, რომ პირდაპირ იქ შეინახოს რეგისტრირებული ექიმის პაროლი
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS doctors (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -62,7 +60,6 @@ def init_database():
             )
         ''')
         
-        # მიგრაცია ძველი ბაზისთვის (თუ password სვეტი არ ჰქონდა)
         cursor.execute("PRAGMA table_info(doctors)")
         doc_columns = [col[1] for col in cursor.fetchall()]
         if 'password' not in doc_columns:
@@ -243,8 +240,6 @@ def render_login(is_lock_screen=False):
                         try:
                             conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
                             cur = conn.cursor()
-                            
-                            # 1. ვამოწმებთ მენეჯერების/დირექტორების ბაზაში (settings)
                             cur.execute("SELECT display_name, password, role FROM settings WHERE manager_login = ?", (input_clean,))
                             found_user = cur.fetchone()
                             
@@ -252,7 +247,6 @@ def render_login(is_lock_screen=False):
                             if found_user:
                                 display_name, actual_pass_hash, user_role = found_user
                             else:
-                                # 2. თუ settings-ში არ არის, ვეძებთ ექიმების ბაზაში (doctors) ელ-ფოსტით
                                 cur.execute("SELECT name, password FROM doctors WHERE LOWER(email) = ?", (input_clean,))
                                 doc_row = cur.fetchone()
                                 if doc_row:
@@ -307,13 +301,10 @@ def render_login(is_lock_screen=False):
                                 pass_hash = hash_password(reg_pass)
                                 conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
                                 cursor = conn.cursor()
-                                
-                                # ვინახავთ ექიმს doctors ცხრილში პაროლიანად
                                 cursor.execute("""
                                     INSERT OR REPLACE INTO doctors (name, specialty, credits, clinic, email, phone, password, notes, expiry_date, last_updated)
                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                                 """, (reg_name.strip(), reg_spec, 30, reg_clinic, reg_email.strip(), reg_phone.strip(), pass_hash, "თვითრეგისტრირებული ექიმი", "2028-12-31", datetime.now().strftime("%Y-%m-%d")))
-                                
                                 conn.commit()
                                 conn.close()
                                 
@@ -495,8 +486,8 @@ elif is_director:
         "📈 ექიმის ისტორიისა და დინამიკის ზედამხედველობა",
         "კლინიკები", 
         "აუდიტის ჟურნალი", 
-        "სეთინგები და პაროლები",
-        "📄 OCR სერთიფიკატების სკანერი"
+        "📄 OCR სერთიფიკატების სკანერი",
+        "ბაზის Backup"
     ]
 else:
     menu_options = [
@@ -508,8 +499,8 @@ else:
         "📈 ექიმის ისტორიისა და დინამიკის ზედამხედველობა",
         "კლინიკები", 
         "აუდიტის ჟურნალი", 
-        "სეთინგები და პაროლები",
-        "📄 OCR სერთიფიკატების სკანერი"
+        "📄 OCR სერთიფიკატების სკანერი",
+        "ბაზის Backup"
     ]
 
 menu_selection = st.sidebar.radio("", menu_options)
@@ -525,7 +516,7 @@ if st.sidebar.button("🚪 სისტემიდან გასვლა", u
     st.rerun()
 
 # =========================================================================
-# 📚 სალექციო პროცესის მართვა
+# 📚 სალექციო პროცესის მართვა (განრიგი და დამატება)
 # =========================================================================
 if menu_selection == "📚 სალექციო პროცესის მართვა":
     col_top, col_btn = st.columns([11, 1])
@@ -537,7 +528,9 @@ if menu_selection == "📚 სალექციო პროცესის მ
             st.cache_data.clear()
             st.rerun()
 
-    st.markdown(f"<p style='color: {subtext_color};'>აირჩიე სასურველი თარიღი და ნახე აუდიტორიების დატვირთულობა მკაცრი ვალიდაციითა და კონფლიქტების პრევენციით.</p>", unsafe_allow_html=True)
+    st.markdown(f"<p style='color: {subtext_color};'>მართეთ ლექციების განრიგი, დაამატეთ ახალი სესიები და აკონტროლეთ აუდიტორიების დატვირთულობა კონფლიქტების პრევენციით.</p>", unsafe_allow_html=True)
+
+    tab_sched_view, tab_sched_add = st.tabs(["📊 აუდიტორიების მატრიცა", "➕ ლექციის დამატება"])
 
     hours_cols = [f"{h:02d}:00" for h in range(9, 19)]
     auditoriums = ["აუდიტორია 1", "აუდიტორია 2", "აუდიტორია 3", "აუდიტორია 4", "აუდიტორია 5"]
@@ -554,56 +547,100 @@ if menu_selection == "📚 სალექციო პროცესის მ
     else:
         df_lectures = pd.DataFrame(columns=["lector", "course", "university", "start_date", "end_date", "auditorium", "start_hour", "end_hour", "weekend_mode", "total_hours"])
 
-    with st.form("date_view_form"):
-        col_d_sel1, col_d_sel2 = st.columns([2, 1])
-        with col_d_sel1:
-            picked_date = st.date_input("📅 აირჩიეთ სანახავი თარიღი:", value=st.session_state.active_view_date)
-        with col_d_sel2:
-            st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
-            apply_date_btn = st.form_submit_button("🔍 განრიგის ნახვა", use_container_width=True)
-            
-        if apply_date_btn:
-            st.session_state.active_view_date = picked_date
+    with tab_sched_view:
+        with st.form("date_view_form"):
+            col_d_sel1, col_d_sel2 = st.columns([2, 1])
+            with col_d_sel1:
+                picked_date = st.date_input("📅 აირჩიეთ სანახავი თარიღი:", value=st.session_state.active_view_date)
+            with col_d_sel2:
+                st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
+                apply_date_btn = st.form_submit_button("🔍 განრიგის ნახვა", use_container_width=True)
+                
+            if apply_date_btn:
+                st.session_state.active_view_date = picked_date
 
-    selected_dt = pd.to_datetime(st.session_state.active_view_date)
-    sel_weekday = selected_dt.weekday()
+        selected_dt = pd.to_datetime(st.session_state.active_view_date)
+        sel_weekday = selected_dt.weekday()
 
-    st.markdown(f"### 📊 აუდიტორიების განრიგი თარიღისთვის: <span style='color: #818cf8;'>{st.session_state.active_view_date}</span>", unsafe_allow_html=True)
-    
-    matrix_data = []
-    for aud in auditoriums:
-        row = {"აუდიტორია": aud}
-        for h in hours_cols:
-            cell_status = "🟢 თავისუფალია"
-            for _, lec in df_lectures.iterrows():
-                if str(lec.get("auditorium")) == aud:
-                    s_date = pd.to_datetime(lec.get("start_date"))
-                    e_date = pd.to_datetime(lec.get("end_date"))
-                    
-                    if s_date <= selected_dt <= e_date:
-                        w_mode = str(lec.get("weekend_mode", "არცერთი"))
-                        is_valid_day = False
-                        if sel_weekday < 5:
-                            is_valid_day = True
-                        elif sel_weekday == 5:
-                            if "შაბათი" in w_mode:
-                                is_valid_day = True
-                        elif sel_weekday == 6:
-                            if "კვირა" in w_mode:
-                                is_valid_day = True
-                                
-                        if is_valid_day:
-                            s_h = str(lec.get("start_hour", ""))
-                            e_h = str(lec.get("end_hour", ""))
-                            if s_h and e_h and s_h <= h <= e_h:
-                                lector = lec.get("lector", "უცნობი")
-                                cell_status = f"🔴 {lector}"
-                                break
-            row[h] = cell_status
-        matrix_data.append(row)
+        st.markdown(f"### 📊 აუდიტორიების განრიგი თარიღისთვის: <span style='color: #818cf8;'>{st.session_state.active_view_date}</span>", unsafe_allow_html=True)
         
-    df_matrix = pd.DataFrame(matrix_data)
-    st.dataframe(df_matrix, use_container_width=True, hide_index=True, height=380)
+        matrix_data = []
+        for aud in auditoriums:
+            row = {"აუდიტორია": aud}
+            for h in hours_cols:
+                cell_status = "🟢 თავისუფალია"
+                for _, lec in df_lectures.iterrows():
+                    if str(lec.get("auditorium")) == aud:
+                        s_date = pd.to_datetime(lec.get("start_date"))
+                        e_date = pd.to_datetime(lec.get("end_date"))
+                        
+                        if s_date <= selected_dt <= e_date:
+                            w_mode = str(lec.get("weekend_mode", "არცერთი"))
+                            is_valid_day = False
+                            if sel_weekday < 5:
+                                is_valid_day = True
+                            elif sel_weekday == 5:
+                                if "შაბათი" in w_mode:
+                                    is_valid_day = True
+                            elif sel_weekday == 6:
+                                if "კვირა" in w_mode:
+                                    is_valid_day = True
+                                    
+                            if is_valid_day:
+                                s_h = str(lec.get("start_hour", ""))
+                                e_h = str(lec.get("end_hour", ""))
+                                if s_h and e_h and s_h <= h <= e_h:
+                                    lector = lec.get("lector", "უცნობი")
+                                    cell_status = f"🔴 {lector}"
+                                    break
+                row[h] = cell_status
+            matrix_data.append(row)
+            
+        df_matrix = pd.DataFrame(matrix_data)
+        st.dataframe(df_matrix, use_container_width=True, hide_index=True, height=380)
+
+    with tab_sched_add:
+        st.markdown("### ➕ ახალი ლექციის / კურსის დამატება")
+        with st.form("add_lecture_form"):
+            col_l1, col_l2 = st.columns(2)
+            with col_l1:
+                lec_lector = st.text_input("👨‍🏫 ლექტორის სახელი და გვარი:", placeholder="მაგ: პროფ. გიორგი ბერიძე")
+                lec_course = st.text_input("📚 კურსის დასახელება:", placeholder="მაგ: საზოგადოებრივი ჯანდაცვის ფუნდამენტები")
+                lec_univ = st.selectbox("🏛️ უნივერსიტეტი / ინსტიტუცია:", ["NCOS აკადემიური ცენტრი", "კავკასიის უნივერსიტეტი", "თბილისის სახელმწიფო სამედიცინო უნივერსიტეტი"])
+                lec_start_date = st.date_input("📅 დაწყების თარიღი:", value=datetime.today())
+                lec_end_date = st.date_input("📅 დასრულების თარიღი:", value=datetime.today() + timedelta(days=7))
+            with col_l2:
+                lec_auditorium = st.selectbox("🚪 აუდიტორია:", auditoriums)
+                lec_start_hour = st.selectbox("⏰ დაწყების საათი:", hours_cols, index=0)
+                lec_end_hour = st.selectbox("⏰ დასრულების საათი:", hours_cols, index=2)
+                lec_weekend = st.selectbox("📆 შაბათ-კვირის რეჟიმი:", ["არცერთი", "მხოლოდ შაბათი", "შაბათი და კვირა"])
+            
+            submit_lec = st.form_submit_button("💾 ლექციის განრიგში დამატება", use_container_width=True)
+            if submit_lec:
+                if not lec_lector.strip() or not lec_course.strip():
+                    st.error("⚠️ გთხოვთ შეავსოთ ლექტორისა და კურსის სახელწოდება!")
+                else:
+                    new_lec_record = {
+                        "lector": lec_lector.strip(),
+                        "course": lec_course.strip(),
+                        "university": lec_univ,
+                        "start_date": str(lec_start_date),
+                        "end_date": str(lec_end_date),
+                        "auditorium": lec_auditorium,
+                        "start_hour": lec_start_hour,
+                        "end_hour": lec_end_hour,
+                        "weekend_mode": lec_weekend,
+                        "total_hours": 2
+                    }
+                    if os.path.exists(LECTURES_FILE):
+                        df_l_curr = pd.read_csv(LECTURES_FILE)
+                        df_l_curr = pd.concat([df_l_curr, pd.DataFrame([new_lec_record])], ignore_index=True)
+                    else:
+                        df_l_curr = pd.DataFrame([new_lec_record])
+                    df_l_curr.to_csv(LECTURES_FILE, index=False, encoding='utf-8-sig')
+                    log_action(st.session_state.current_user, "ლექციის დამატება", lec_lector, f"კურსი: {lec_course}, აუდიტორია: {lec_auditorium}")
+                    st.success("✅ ლექცია წარმატებით დაემატა განრიგს!")
+                    st.rerun()
 
 # =========================================================================
 # 📋 ექიმების რეესტრი
@@ -975,12 +1012,6 @@ elif menu_selection == "აუდიტის ჟურნალი":
     else:
         st.info("ℹ️ ჟურნალი ცარიელია.")
 
-elif menu_selection == "სეთინგები და პაროლები":
-    st.subheader("⚙️ სეთინგები და Backup")
-    if os.path.exists(DB_NAME):
-        with open(DB_NAME, "rb") as f:
-            st.download_button("📥 ბაზის Backup (.db)", data=f.read(), file_name="backup.db", mime="application/octet-stream", use_container_width=True)
-
 elif menu_selection == "📄 OCR სერთიფიკატების სკანერი":
     st.subheader("📄 ინტელექტუალური OCR სერთიფიკატების სკანერი")
     st.markdown(f"<p style='color: {subtext_color}; font-size: 14px;'>ატვირთეთ ექიმის სერტიფიკატის PDF ფაილი, რათა ავტომატურად ამოიკითხოს ტექსტური მონაცემები.</p>", unsafe_allow_html=True)
@@ -989,3 +1020,12 @@ elif menu_selection == "📄 OCR სერთიფიკატების ს�
         with st.spinner("მიმდინარეობს დოკუმენტის დამუშავება და სკანირება..."):
             extracted_text = extract_text_from_pdf(ocr_file)
         st.text_area("📄 ამოკითხული დოკუმენტის შიგთავსი:", extracted_text, height=250)
+
+elif menu_selection == "ბაზის Backup":
+    st.subheader("💾 მონაცემთა ბაზის Backup")
+    st.markdown(f"<p style='color: {subtext_color}; font-size: 14px;'>ჩამოტვირთეთ SQLite ბაზის ასლი უსაფრთხოების მიზნით.</p>", unsafe_allow_html=True)
+    if os.path.exists(DB_NAME):
+        with open(DB_NAME, "rb") as f:
+            st.download_button("📥 ბაზის Backup (.db)", data=f.read(), file_name="backup.db", mime="application/octet-stream", use_container_width=True)
+    else:
+        st.info("ℹ️ ბაზის ფაილი ჯერ არ არსებობს.")
