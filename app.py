@@ -612,8 +612,8 @@ if menu_selection == "📚 სალექციო პროცესის მ
             col_l1, col_l2 = st.columns(2)
             with col_l1:
                 lec_lector = st.text_input("👨‍🏫 ლექტორის სახელი და გვარი:", placeholder="მაგ: პროფ. გიორგი ბერიძე")
-                lec_course = st.text_input("📚 კურსის / საგნის დასახელება:", placeholder="მაგ: საზოგადოებრივი ჯანდაცვის ფუნდამენტები")
-                lec_univ = st.selectbox("🏛️ უნივერსიტეტი / ინსტიტუცია:", ["NCOS აკადემიური ცენტრი", "კავკასიის უნივერსიტეტი", "თბილისის სახელმწიფო სამედიცინო უნივერსიტეტი"])
+                lec_course = st.text_input("📚 საგნის / კურსის დასახელება:", placeholder="ჩაწერეთ საგანი ხელით...")
+                lec_univ = st.text_input("🏛️ უნივერსიტეტი / ინსტიტუცია:", placeholder="ჩაწერეთ უნივერსიტეტი ხელით...")
                 lec_start_date = st.date_input("📅 დაწყების თარიღი:", value=datetime.today())
                 lec_end_date = st.date_input("📅 დასრულების თარიღი:", value=datetime.today() + timedelta(days=7))
             with col_l2:
@@ -626,12 +626,12 @@ if menu_selection == "📚 სალექციო პროცესის მ
             submit_lec = st.form_submit_button("💾 ლექციის განრიგში დამატება", use_container_width=True)
             if submit_lec:
                 if not lec_lector.strip() or not lec_course.strip():
-                    st.error("⚠️ გთხოვთ შეავსოთ ლექტორისა და კურსის სახელწოდება!")
+                    st.error("⚠️ გთხოვთ შეავსოთ ლექტორისა და საგნის/კურსის სახელწოდება!")
                 else:
                     new_lec_record = {
                         "lector": lec_lector.strip(),
                         "course": lec_course.strip(),
-                        "university": lec_univ,
+                        "university": lec_univ.strip(),
                         "start_date": str(lec_start_date),
                         "end_date": str(lec_end_date),
                         "auditorium": lec_auditorium,
@@ -646,7 +646,7 @@ if menu_selection == "📚 სალექციო პროცესის მ
                     else:
                         df_l_curr = pd.DataFrame([new_lec_record])
                     df_l_curr.to_csv(LECTURES_FILE, index=False, encoding='utf-8-sig')
-                    log_action(st.session_state.current_user, "ლექციის დამატება", lec_lector, f"კურსი: {lec_course}, აუდიტორია: {lec_auditorium}, საათი: {lec_hours_count}")
+                    log_action(st.session_state.current_user, "ლექციის დამატება", lec_lector, f"საგანი: {lec_course}, უნივერსიტეტი: {lec_univ}, აუდიტორია: {lec_auditorium}, საათი: {lec_hours_count}")
                     st.success("✅ ლექცია წარმატებით დაემატა განრიგს!")
                     st.rerun()
 
@@ -673,7 +673,6 @@ if menu_selection == "📚 სალექციო პროცესის მ
                 ].copy()
                 
                 if not filtered_rep.empty:
-                    # აგრეგაცია: ლექტორი + საგანი (სამი სხვადასხვა საგანი ცალ-ცალკე აღირიცხება)
                     if "total_hours" not in filtered_rep.columns:
                         filtered_rep["total_hours"] = 2
                     
@@ -712,14 +711,12 @@ if menu_selection == "📚 სალექციო პროცესის მ
                         pdf.add_page()
                         pdf.set_font("Arial", "B", 10)
                         
-                        # ცხრილის სათაურები
                         pdf.cell(80, 8, "Lector / ლექტორი", 1, 0, "L")
                         pdf.cell(80, 8, "Course / საგანი", 1, 0, "L")
                         pdf.cell(30, 8, "Hours / საათი", 1, 1, "C")
                         
                         pdf.set_font("Arial", "", 10)
                         for _, row in summary_df.iterrows():
-                            # ტექსტის უსაფრთხო ენქოდინგი PDF-ისთვის
                             lector_txt = str(row["ლექტორი"]).encode('latin-1', 'replace').decode('latin-1')
                             course_txt = str(row["საგანი / კურსი"]).encode('latin-1', 'replace').decode('latin-1')
                             hours_txt = str(row["ჯამური საათები"])
