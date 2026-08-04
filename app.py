@@ -59,19 +59,19 @@ def init_database():
             )
         ''')
         
+        # settings ცხრილის სტრუქტურის შემოწმება და მიგრაცია
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS settings (
+                manager_login TEXT PRIMARY KEY,
+                display_name TEXT,
+                password TEXT,
+                role TEXT
+            )
+        ''')
+        
         cursor.execute("PRAGMA table_info(settings)")
         columns = [col[1] for col in cursor.fetchall()]
-        
-        if not columns:
-            cursor.execute('''
-                CREATE TABLE settings (
-                    manager_login TEXT PRIMARY KEY,
-                    display_name TEXT,
-                    password TEXT,
-                    role TEXT
-                )
-            ''')
-        elif 'role' not in columns:
+        if 'display_name' not in columns or 'role' not in columns:
             cursor.execute("DROP TABLE settings")
             cursor.execute('''
                 CREATE TABLE settings (
@@ -243,25 +243,24 @@ def render_login(is_lock_screen=False):
                         input_clean = login_input.strip().lower()
                         user_row = df_sets[df_sets["manager_login"] == input_clean]
                         
-                        # თუ პირდაპირ ლოგინით ვერ მოიძებნა, ვეძებთ ელ-ფოსტით ექიმების ცხრილში
                         if user_row.empty:
                             try:
                                 conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
                                 cur = conn.cursor()
-                                cur.execute("SELECT name, password FROM settings WHERE manager_login = ?", (input_clean,))
+                                cur.execute("SELECT display_name, password, role FROM settings WHERE manager_login = ?", (input_clean,))
                                 found_setting = cur.fetchone()
                                 conn.close()
                                 
                                 if found_setting:
-                                    display_name, actual_pass_hash = found_setting
+                                    display_name, actual_pass_hash, user_role = found_setting
                                     if check_password(password_input, actual_pass_hash):
                                         st.session_state.logged_in = True
                                         st.session_state.screen_locked = False
                                         st.session_state.current_user = display_name
-                                        st.session_state.current_role = "doctor"
+                                        st.session_state.current_role = user_role if user_role else "doctor"
                                         st.session_state.login_time = datetime.now()
                                         st.query_params["auth_user"] = display_name
-                                        st.query_params["auth_role"] = "doctor"
+                                        st.query_params["auth_role"] = st.session_state.current_role
                                         st.success("✅ ავტორიზაცია წარმატებულია!")
                                         st.rerun()
                                     else:
@@ -314,13 +313,11 @@ def render_login(is_lock_screen=False):
                                 conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
                                 cursor = conn.cursor()
                                 
-                                # ექიმის დამატება doctors რეესტრში
                                 cursor.execute("""
                                     INSERT OR REPLACE INTO doctors (name, specialty, credits, clinic, email, phone, notes, expiry_date, last_updated)
                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                                 """, (reg_name.strip(), reg_spec, 30, reg_clinic, reg_email.strip(), reg_phone.strip(), "თვითრეგისტრირებული ექიმი", "2028-12-31", datetime.now().strftime("%Y-%m-%d")))
                                 
-                                # პაროლის და ლოგინის შენახვა settings ცხრილში (სადაც ზუსტი ელ-ფოსტა იწერება როგორც ლოგინი)
                                 pass_hash = hash_password(reg_pass)
                                 exact_login = reg_email.strip().lower()
                                 cursor.execute("""
