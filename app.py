@@ -175,6 +175,8 @@ if "login_time" not in st.session_state:
     st.session_state.login_time = None
 if "active_view_date" not in st.session_state:
     st.session_state.active_view_date = datetime.today().date()
+if "app_theme" not in st.session_state:
+    st.session_state.app_theme = "Dark (მუქი)"
 
 query_params = st.query_params
 if not st.session_state.logged_in and "auth_user" in query_params and "auth_role" in query_params:
@@ -264,49 +266,71 @@ if st.session_state.screen_locked:
     render_login(is_lock_screen=True)
     st.stop()
 
-# --- 💎 UI / CSS დიზაინი ---
-st.markdown("""
+# --- 💎 დინამიკური თემების CSS სტილები (Dark & Light Modes) ---
+is_dark = st.session_state.app_theme == "Dark (მუქი)"
+
+if is_dark:
+    bg_color = "radial-gradient(circle at 15% 15%, #070d1d 0%, #030712 50%, #020408 100%)"
+    text_color = "#f8fafc"
+    header_bg = "linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.85) 100%)"
+    card_bg = "linear-gradient(145deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.8) 100%)"
+    sidebar_bg = "linear-gradient(180deg, #030712 0%, #070d1d 50%, #0f172a 100%)"
+    subtext_color = "#94a3b8"
+    sidebar_label_bg = "rgba(30, 41, 59, 0.4)"
+    sidebar_label_hover = "linear-gradient(135deg, rgba(79, 70, 229, 0.3) 0%, rgba(99, 102, 241, 0.4) 100%)"
+else:
+    bg_color = "radial-gradient(circle at 15% 15%, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%)"
+    text_color = "#0f172a"
+    header_bg = "linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(241, 245, 249, 0.95) 100%)"
+    card_bg = "linear-gradient(145deg, rgba(255, 255, 255, 0.9) 0%, rgba(241, 245, 249, 0.95) 100%)"
+    sidebar_bg = "linear-gradient(180deg, #e2e8f0 0%, #cbd5e1 50%, #94a3b8 100%)"
+    subtext_color = "#334155"
+    sidebar_label_bg = "rgba(255, 255, 255, 0.8)"
+    sidebar_label_hover = "linear-gradient(135deg, rgba(79, 70, 229, 0.2) 0%, rgba(99, 102, 241, 0.3) 100%)"
+
+st.markdown(f"""
     <style>
-        .stApp {
-            background: radial-gradient(circle at 15% 15%, #070d1d 0%, #030712 50%, #020408 100%) !important;
-            color: #f8fafc !important;
+        .stApp {{
+            background: {bg_color} !important;
+            color: {text_color} !important;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        }
-        .main { background: transparent !important; }
-        .header-card {
-            background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.85) 100%);
+        }}
+        .main {{ background: transparent !important; }}
+        .header-card {{
+            background: {header_bg};
             padding: 30px; border-radius: 20px;
             border: 1px solid rgba(129, 140, 248, 0.25); border-left: 8px solid #6366f1;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
             margin-bottom: 25px; backdrop-filter: blur(20px);
         }
-        .login-card-container {
-            background: linear-gradient(145deg, rgba(15, 23, 42, 0.85) 0%, rgba(7, 13, 29, 0.95) 100%);
+        .login-card-container {{
+            background: {card_bg};
             padding: 30px 20px; border-radius: 20px; border: 1px solid rgba(129, 140, 248, 0.3);
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8); width: 100%; margin: 10px auto; position: relative; overflow: hidden; text-align: center;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3); width: 100%; margin: 10px auto; position: relative; overflow: hidden; text-align: center;
         }
-        .login-title { color: #ffffff; text-align: center; font-size: 22px; font-weight: 800; margin-bottom: 6px; }
-        .login-subtitle { color: #94a3b8; text-align: center; font-size: 13px; margin-bottom: 0px; }
-        section[data-testid="stSidebar"] {
-            background: linear-gradient(180deg, #030712 0%, #070d1d 50%, #0f172a 100%) !important;
-            border-right: 1px solid rgba(129, 140, 248, 0.2); padding-top: 15px;
-        }
-        section[data-testid="stSidebar"] .stRadio label {
-            background: rgba(30, 41, 59, 0.4); border-radius: 12px; padding: 10px 14px !important;
+        .login-title {{ color: {text_color}; text-align: center; font-size: 22px; font-weight: 800; margin-bottom: 6px; }}
+        .login-subtitle {{ color: {subtext_color}; text-align: center; font-size: 13px; margin-bottom: 0px; }}
+        section[data-testid="stSidebar"] {{
+            background: {sidebar_bg} !important;
+            border-right: 1px solid rgba(129, 140, 248, 0.2); padding-top: 10px;
+        }}
+        section[data-testid="stSidebar"] .stRadio label {{
+            background: {sidebar_label_bg}; border-radius: 12px; padding: 10px 14px !important;
             border: 1px solid rgba(129, 140, 248, 0.15); width: 100% !important; display: flex !important; align-items: center !important; cursor: pointer; transition: all 0.3s ease;
-        }
-        section[data-testid="stSidebar"] .stRadio label:hover {
-            background: linear-gradient(135deg, rgba(79, 70, 229, 0.3) 0%, rgba(99, 102, 241, 0.4) 100%);
+            color: {text_color} !important; font-weight: 600;
+        }}
+        section[data-testid="stSidebar"] .stRadio label:hover {{
+            background: {sidebar_label_hover};
             border-color: rgba(129, 140, 248, 0.6);
-        }
-        .stButton > button {
+        }}
+        .stButton > button {{
             border-radius: 12px !important; font-weight: 700 !important; font-size: 15px !important; padding: 10px 16px !important;
             border: 1px solid rgba(129, 140, 248, 0.5) !important; background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%) !important; color: white !important; box-shadow: 0 8px 20px rgba(79, 70, 229, 0.4);
-        }
-        [data-testid="stMetric"] {
-            background: linear-gradient(145deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.8) 100%);
-            padding: 18px; border-radius: 16px; border: 1px solid rgba(129, 140, 248, 0.25); box-shadow: 0 8px 25px rgba(0,0,0,0.4);
-        }
+        }}
+        [data-testid="stMetric"] {{
+            background: {card_bg};
+            padding: 18px; border-radius: 16px; border: 1px solid rgba(129, 140, 248, 0.25); box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -326,8 +350,8 @@ st.markdown(f"""
         <div style='font-size: 12px; color: #818cf8; margin-bottom: 6px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px;'>უწყვეტი სამედიცინო განათლების მართვის პანელი</div>
         <div style='display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;'>
             <div>
-                <h2 style='color: white; margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.5px;'>🧬 NCOS CPD/Academic Programs Portal</h2>
-                <p style='color: #94a3b8; margin: 6px 0 0 0; font-size: 14px;'>კლინიკური მართვა, პერსონალის კვალიფიკაცია და რისკების კონტროლი</p>
+                <h2 style='color: {text_color}; margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.5px;'>🧬 NCOS CPD/Academic Programs Portal</h2>
+                <p style='color: {subtext_color}; margin: 6px 0 0 0; font-size: 14px;'>კლინიკური მართვა, პერსონალის კვალიფიკაცია და რისკების კონტროლი</p>
             </div>
             <div>
                 <span style='background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; padding: 10px 22px; border-radius: 25px; font-size: 14px; font-weight: 700; box-shadow: 0 5px 15px rgba(99, 102, 241, 0.5);'>👤 აქტიური მენეჯერი: <b>{st.session_state.current_user}</b></span>
@@ -336,9 +360,16 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-# --- 🧭 საიდბარი (მენიუ) ---
+# --- 🧭 საიდბარი (მენიუ & თემის გადამრთველი) ---
 st.sidebar.markdown(f"**👤 მომხმარებელი:** {st.session_state.current_user}")
-if st.sidebar.button("🔒 ეკრანი დაბლოკვა (Lock)", use_container_width=True):
+
+# საიტის შიდა თემის გადამრთველი (Dark / Light)
+theme_choice = st.sidebar.selectbox("🎨 საიტის თემა (Theme):", ["Dark (მუქი)", "Light (ნათელი)"], index=0 if st.session_state.app_theme == "Dark (მუქი)" else 1)
+if theme_choice != st.session_state.app_theme:
+    st.session_state.app_theme = theme_choice
+    st.rerun()
+
+if st.sidebar.button("🔒 ეკრანის დაბლოკვა (Lock)", use_container_width=True):
     st.session_state.screen_locked = True
     st.rerun()
 
@@ -399,7 +430,7 @@ if menu_selection == "📚 სალექციო პროცესის მ
             st.cache_data.clear()
             st.rerun()
 
-    st.markdown("<p style='color: #94a3b8;'>აირჩიე სასურველი თარიღი და ნახე აუდიტორიების დატვირთულობა მკაცრი ვალიდაციითა და კონფლიქტების პრევენციით.</p>", unsafe_allow_html=True)
+    st.markdown(f"<p style='color: {subtext_color};'>აირჩიე სასურველი თარიღი და ნახე აუდიტორიების დატვირთულობა მკაცრი ვალიდაციითა და კონფლიქტების პრევენციით.</p>", unsafe_allow_html=True)
 
     hours_cols = [f"{h:02d}:00" for h in range(9, 19)]
     auditoriums = ["აუდიტორია 1", "აუდიტორია 2", "აუდიტორია 3", "აუდიტორია 4", "აუდიტორია 5"]
@@ -480,7 +511,7 @@ elif menu_selection == "ექიმების რეესტრი":
             st.cache_data.clear()
             st.rerun()
 
-    st.markdown("<p style='color: #94a3b8;'>მართეთ ექიმთა ბაზა, დაამატეთ ახალი კადრები, მონიშნეთ checkbox-ებით და წაშალეთ საჭიროებისამებრ (20 ექიმი თითო გვერდზე).</p>", unsafe_allow_html=True)
+    st.markdown(f"<p style='color: {subtext_color};'>მართეთ ექიმთა ბაზა, დაამატეთ ახალი კადრები, მონიშნეთ checkbox-ებით და წაშალეთ საჭიროებისამებრ (20 ექიმი თითო გვერდზე).</p>", unsafe_allow_html=True)
 
     tab_reg, tab_list, tab_import = st.tabs(["➕ ექიმის რეგისტრაცია", "📋 რეესტრი & მართვა / მონიშვნა & წაშლა", "📁 Excel / CSV იმპორტი"])
 
@@ -542,7 +573,7 @@ elif menu_selection == "ექიმების რეესტრი":
 
             df_page.insert(0, "მონიშვნა", st.session_state[select_all_key])
 
-            st.markdown(f"<p style='color: #94a3b8; font-size: 14px;'>ნაჩვენებია ექიმები: {start_idx + 1} - {min(end_idx, total_doctors)} (სულ: {total_doctors})</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='color: {subtext_color}; font-size: 14px;'>ნაჩვენებია ექიმები: {start_idx + 1} - {min(end_idx, total_doctors)} (სულ: {total_doctors})</p>", unsafe_allow_html=True)
 
             edited_df = st.data_editor(
                 df_page,
@@ -594,7 +625,7 @@ elif menu_selection == "ექიმების რეესტრი":
 
     with tab_import:
         st.markdown("### 📁 მონაცემთა მასობრივი იმპორტი (Excel / CSV)")
-        st.markdown("<p style='color: #94a3b8; font-size: 14px;'>ატვირთეთ ფაილი. სვეტი შეიძლება ერქვას <code>name</code>, <code>ექიმი</code> ან <code>სახელი</code>.</p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='color: {subtext_color}; font-size: 14px;'>ატვირთეთ ფაილი. სვეტი შეიძლება ერქვას <code>name</code>, <code>ექიმი</code> ან <code>სახელი</code>.</p>", unsafe_allow_html=True)
         uploaded_file = st.file_uploader("აირჩიეთ CSV ან Excel ფაილი:", type=["csv", "xlsx", "xls"])
         
         if uploaded_file is not None:
@@ -689,7 +720,7 @@ elif menu_selection == "მთავარი დაფა & ანალიტ�
             st.cache_data.clear()
             st.rerun()
 
-    st.markdown("<p style='color: #94a3b8;'>პლატფორმის ზოგადი წარმოდგენა: ძირითადი მეტრიკები, კლინიკების დატვირთულობა, კრედიტების სტატისტიკა და ბოლო აუდიტორული ცვლილებები.</p>", unsafe_allow_html=True)
+    st.markdown(f"<p style='color: {subtext_color};'>პლატფორმის ზოგადი წარმოდგენა: ძირითადი მეტრიკები, კლინიკების დატვირთულობა, კრედიტების სტატისტიკა და ბოლო აუდიტორული ცვლილებები.</p>", unsafe_allow_html=True)
     
     doctors_data = fetch_doctors()
     df_main = pd.DataFrame(doctors_data)
@@ -845,7 +876,7 @@ elif menu_selection == "სეთინგები და პაროლებ
 
 elif menu_selection == "📄 OCR სერთიფიკატების სკანერი":
     st.subheader("📄 ინტელექტუალური OCR სერთიფიკატების სკანერი")
-    st.markdown("<p style='color: #94a3b8; font-size: 14px;'>ატვირთეთ ექიმის სერტიფიკატის PDF ფაილი, რათა ავტომატურად ამოიკითხოს ტექსტური მონაცემები.</p>", unsafe_allow_html=True)
+    st.markdown(f"<p style='color: {subtext_color}; font-size: 14px;'>ატვირთეთ ექიმის სერტიფიკატის PDF ფაილი, რათა ავტომატურად ამოიკითხოს ტექსტური მონაცემები.</p>", unsafe_allow_html=True)
     ocr_file = st.file_uploader("აირჩიეთ სერთიფიკატი (.pdf):", type=["pdf"])
     if ocr_file is not None:
         with st.spinner("მიმდინარეობს დოკუმენტის დამუშავება და სკანირება..."):
