@@ -266,7 +266,7 @@ if st.session_state.screen_locked:
     render_login(is_lock_screen=True)
     st.stop()
 
-# --- 💎 აბსოლუტური და დამოუკიდებელი თემების CSS სტილები (Dark & Light Modes Override) ---
+# --- 💎 სრული თემების და ვიჯეტების CSS სტილები (Dark & Light Modes Override) ---
 is_dark = st.session_state.app_theme == "Dark (მუქი)"
 
 if is_dark:
@@ -327,7 +327,7 @@ st.markdown(f"""
         .login-title {{ color: {text_color} !important; text-align: center; font-size: 22px; font-weight: 800; margin-bottom: 6px; }}
         .login-subtitle {{ color: {subtext_color} !important; text-align: center; font-size: 13px; margin-bottom: 0px; }}
         
-        /* საიდბარის სრული სტილიზაცია */
+        /* საიდბარის სრული სტილიზაცია და თემის გადამრთველის დაცვა */
         section[data-testid="stSidebar"] {{
             background: {sidebar_bg} !important;
             border-right: 1px solid rgba(129, 140, 248, 0.2); padding-top: 10px;
@@ -335,6 +335,17 @@ st.markdown(f"""
         section[data-testid="stSidebar"] * {{
             color: {text_color} !important;
         }}
+        
+        /* Selectbox (Dropdown) ფერების და ტექსტების მკაცრი გაწერა */
+        div[data-baseweb="select"] > div {{
+            background-color: {input_bg} !important;
+            color: {input_text} !important;
+            border-color: rgba(129, 140, 248, 0.4) !important;
+        }}
+        div[data-baseweb="select"] span {{
+            color: {input_text} !important;
+        }}
+        
         section[data-testid="stSidebar"] .stRadio label {{
             background: {sidebar_label_bg}; border-radius: 12px; padding: 10px 14px !important;
             border: 1px solid rgba(129, 140, 248, 0.2); width: 100% !important; display: flex !important; align-items: center !important; cursor: pointer; transition: all 0.3s ease;
