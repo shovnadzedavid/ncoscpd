@@ -59,7 +59,6 @@ def init_database():
             )
         ''')
         
-        # settings ცხრილის სტრუქტურის შემოწმება და მიგრაცია
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS settings (
                 manager_login TEXT PRIMARY KEY,
@@ -210,13 +209,6 @@ def render_login(is_lock_screen=False):
             </div>
         """, unsafe_allow_html=True)
         
-        try:
-            conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
-            df_sets = pd.read_sql("SELECT * FROM settings", conn)
-            conn.close()
-        except:
-            df_sets = pd.DataFrame()
-        
         if is_lock_screen:
             login_val = ""
             for l_key, l_val in [("ლალი ივანიშვილი", "laliivanishvili"), ("ნიკოლოზ ჩადუნელი", "nikolozchaduneli"), ("დავით შოვნაძე", "davitshovnadze")]:
@@ -225,13 +217,20 @@ def render_login(is_lock_screen=False):
             password_input = st.text_input("🔑 შეიყვანეთ პაროლი:", type="password", key="lock_pass_field")
             
             if st.button("🔓 ეკრანის განბლოკვა", use_container_width=True):
-                user_row = df_sets[df_sets["manager_login"] == login_val]
-                if not user_row.empty and check_password(password_input, user_row["password"].values[0]):
-                    st.session_state.screen_locked = False
-                    st.success("✅ ეკრანი განბლოკილია!")
-                    st.rerun()
-                else:
-                    st.error("❌ არასწორი პაროლი!")
+                try:
+                    conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
+                    cur = conn.cursor()
+                    cur.execute("SELECT password FROM settings WHERE manager_login = ?", (login_val,))
+                    row = cur.fetchone()
+                    conn.close()
+                    if row and check_password(password_input, row[0]):
+                        st.session_state.screen_locked = False
+                        st.success("✅ ეკრანი განბლოკილია!")
+                        st.rerun()
+                    else:
+                        st.error("❌ არასწორი პაროლი!")
+                except Exception as e:
+                    st.error(f"შეცდომა: {e}")
         else:
             if not st.session_state.show_register:
                 login_input = st.text_input("👤 ლოგინი / ელ-ფოსტა:", placeholder="შეიყვანეთ ლოგინი ან ელ-ფოსტა", key="login_field", autocomplete="off")
@@ -239,53 +238,46 @@ def render_login(is_lock_screen=False):
                 
                 st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
                 if st.button("🚀 სისტემაში შესვლა", use_container_width=True):
-                    if not df_sets.empty:
+                    if not login_input.strip() or not password_input.strip():
+                        st.error("⚠️ გთხოვთ შეიყვანოთ ლოგინი/ელ-ფოსტა და პაროლი!")
+                    else:
                         input_clean = login_input.strip().lower()
-                        user_row = df_sets[df_sets["manager_login"] == input_clean]
-                        
-                        if user_row.empty:
-                            try:
-                                conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
-                                cur = conn.cursor()
-                                cur.execute("SELECT display_name, password, role FROM settings WHERE manager_login = ?", (input_clean,))
-                                found_setting = cur.fetchone()
-                                conn.close()
-                                
-                                if found_setting:
-                                    display_name, actual_pass_hash, user_role = found_setting
-                                    if check_password(password_input, actual_pass_hash):
-                                        st.session_state.logged_in = True
-                                        st.session_state.screen_locked = False
-                                        st.session_state.current_user = display_name
-                                        st.session_state.current_role = user_role if user_role else "doctor"
-                                        st.session_state.login_time = datetime.now()
-                                        st.query_params["auth_user"] = display_name
-                                        st.query_params["auth_role"] = st.session_state.current_role
-                                        st.success("✅ ავტორიზაცია წარმატებულია!")
-                                        st.rerun()
-                                    else:
-                                        st.error("❌ არასწორი პაროლი!")
-                                else:
-                                    st.error("❌ მითითებული ლოგინი / ელ-ფოსტა არ მოიძებნა ბაზაში!")
-                            except Exception as e:
-                                st.error(f"შეცდომა: {e}")
-                        else:
-                            actual_pass_hash = user_row["password"].values[0]
-                            display_name = user_row["display_name"].values[0]
-                            user_role = user_row["role"].values[0] if "role" in user_row.columns else "manager"
+                        try:
+                            conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
+                            cur = conn.cursor()
+                            # ვეძებთ პირდაპირ settings ცხრილში
+                            cur.execute("SELECT display_name, password, role FROM settings WHERE manager_login = ?", (input_clean,))
+                            found_setting = cur.fetchone()
                             
-                            if check_password(password_input, actual_pass_hash):
-                                st.session_state.logged_in = True
-                                st.session_state.screen_locked = False
-                                st.session_state.current_user = display_name
-                                st.session_state.current_role = user_role
-                                st.session_state.login_time = datetime.now()
-                                st.query_params["auth_user"] = display_name
-                                st.query_params["auth_role"] = user_role
-                                st.success("✅ ავტორიზაცია წარმატებულია!")
-                                st.rerun()
+                            # თუ settings-ში ვერ მოიძებნა, ვეძებთ doctors ცხრილში ელ-ფოსტით
+                            if not found_setting:
+                                cur.execute("SELECT name, email FROM doctors WHERE email = ?", (input_clean,))
+                                doc_row = cur.fetchone()
+                                if doc_row:
+                                    # თუ ექიმია, მაგრამ პაროლი settings-ში არ იძებნებოდა, ვამოწმებთ ან ვქმნით
+                                    cur.execute("SELECT display_name, password, role FROM settings WHERE display_name = ?", (doc_row[0],))
+                                    found_setting = cur.fetchone()
+                            
+                            conn.close()
+                            
+                            if found_setting:
+                                display_name, actual_pass_hash, user_role = found_setting
+                                if check_password(password_input, actual_pass_hash):
+                                    st.session_state.logged_in = True
+                                    st.session_state.screen_locked = False
+                                    st.session_state.current_user = display_name
+                                    st.session_state.current_role = user_role if user_role else "doctor"
+                                    st.session_state.login_time = datetime.now()
+                                    st.query_params["auth_user"] = display_name
+                                    st.query_params["auth_role"] = st.session_state.current_role
+                                    st.success("✅ ავტორიზაცია წარმატებულია!")
+                                    st.rerun()
+                                else:
+                                    st.error("❌ არასწორი პაროლი!")
                             else:
-                                st.error("❌ არასწორი პაროლი!")
+                                st.error("❌ მითითებული ლოგინი / ელ-ფოსტა არ მოიძებნა ბაზაში!")
+                        except Exception as e:
+                            st.error(f"ტექნიკური შეცდომა ავტორიზაციისას: {e}")
                 
                 st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
                 if st.button("📝 ექიმის რეგისტრაცია", use_container_width=True, type="secondary"):
@@ -313,11 +305,13 @@ def render_login(is_lock_screen=False):
                                 conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
                                 cursor = conn.cursor()
                                 
+                                # 1. ვინახავთ doctors რეესტრში
                                 cursor.execute("""
                                     INSERT OR REPLACE INTO doctors (name, specialty, credits, clinic, email, phone, notes, expiry_date, last_updated)
                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                                 """, (reg_name.strip(), reg_spec, 30, reg_clinic, reg_email.strip(), reg_phone.strip(), "თვითრეგისტრირებული ექიმი", "2028-12-31", datetime.now().strftime("%Y-%m-%d")))
                                 
+                                # 2. ვინახავთ settings ცხრილშიც, რომ ლოგინით და პაროლით შესვლა უპრობლემოდ შეძლო
                                 pass_hash = hash_password(reg_pass)
                                 exact_login = reg_email.strip().lower()
                                 cursor.execute("""
@@ -737,7 +731,7 @@ elif menu_selection == "ექიმების რეესტრი":
                     except Exception as e:
                         st.error(f"შეცდომა წაშლისას: {e}")
                 else:
-                    st.warning("⚠️ არცერთი ექიმი არ არის მონიშნული დასაშლელად! მონიშნეთ სასურველი სტრიქონები Checkbox-ით.")
+                    st.warning("⚠️ არცერთი ექიმი არ არის მონიშნული დასაშელად! მონიშნეთ სასურველი სტრიქონები Checkbox-ით.")
         else:
             st.info("ℹ️ ექიმთა ბაზა ცარიელია.")
 
