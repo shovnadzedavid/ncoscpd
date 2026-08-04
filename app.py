@@ -240,8 +240,37 @@ def render_login(is_lock_screen=False):
                 st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
                 if st.button("🚀 სისტემაში შესვლა", use_container_width=True):
                     if not df_sets.empty:
-                        user_row = df_sets[df_sets["manager_login"] == login_input.strip().lower()]
-                        if not user_row.empty:
+                        input_clean = login_input.strip().lower()
+                        user_row = df_sets[df_sets["manager_login"] == input_clean]
+                        
+                        # თუ პირდაპირ ლოგინით ვერ მოიძებნა, ვეძებთ ელ-ფოსტით ექიმების ცხრილში
+                        if user_row.empty:
+                            try:
+                                conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
+                                cur = conn.cursor()
+                                cur.execute("SELECT name, password FROM settings WHERE manager_login = ?", (input_clean,))
+                                found_setting = cur.fetchone()
+                                conn.close()
+                                
+                                if found_setting:
+                                    display_name, actual_pass_hash = found_setting
+                                    if check_password(password_input, actual_pass_hash):
+                                        st.session_state.logged_in = True
+                                        st.session_state.screen_locked = False
+                                        st.session_state.current_user = display_name
+                                        st.session_state.current_role = "doctor"
+                                        st.session_state.login_time = datetime.now()
+                                        st.query_params["auth_user"] = display_name
+                                        st.query_params["auth_role"] = "doctor"
+                                        st.success("✅ ავტორიზაცია წარმატებულია!")
+                                        st.rerun()
+                                    else:
+                                        st.error("❌ არასწორი პაროლი!")
+                                else:
+                                    st.error("❌ მითითებული ლოგინი / ელ-ფოსტა არ მოიძებნა ბაზაში!")
+                            except Exception as e:
+                                st.error(f"შეცდომა: {e}")
+                        else:
                             actual_pass_hash = user_row["password"].values[0]
                             display_name = user_row["display_name"].values[0]
                             user_role = user_row["role"].values[0] if "role" in user_row.columns else "manager"
@@ -258,8 +287,6 @@ def render_login(is_lock_screen=False):
                                 st.rerun()
                             else:
                                 st.error("❌ არასწორი პაროლი!")
-                        else:
-                            st.error("❌ მითითებული ლოგინი არ მოიძებნა ბაზაში!")
                 
                 st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
                 if st.button("📝 ექიმის რეგისტრაცია", use_container_width=True, type="secondary"):
@@ -268,13 +295,13 @@ def render_login(is_lock_screen=False):
             else:
                 st.markdown("### 🩺 ექიმის თვითრეგისტრაცია სისტემაში")
                 with st.form("doctor_self_reg_form"):
-                    reg_name = st.text_input("👤 სახელი და გვარი (* სავალდებულო):", placeholder="მაგ: გიორგი ბერიძე")
-                    reg_spec = st.text_input("🩺 სპეციალობა:", placeholder="მაგ: თერაპია / კარდიოლოგია")
+                    reg_name = st.text_input("👤 სახელი და გვარი (* სავალდებულო):", placeholder="მაგ: დავით შოვნაძე")
+                    reg_spec = st.text_input("🩺 სპეციალობა:", placeholder="მაგ: საზოგადოებრივი ჯანდაცვა")
                     reg_clinic = st.selectbox("🏥 კლინიკა:", CLINICS_LIST)
-                    reg_email = st.text_input("📧 ელ-ფოსტა:", placeholder="doctor@edumed.ge")
+                    reg_email = st.text_input("📧 ელ-ფოსტა (* სავალდებულო):", placeholder="davit.shovnadze@aversi.ge")
                     reg_phone = st.text_input("📞 ტელეფონი:", placeholder="+995 599 00 00 00")
-                    reg_pass = st.text_input("🔑 პაროლი:", type="password")
-                    reg_pass_conf = st.text_input("🔑 პაროლის დადასტურება:", type="password")
+                    reg_pass = st.text_input("🔑 პაროლი (* სავალდებულო):", type="password")
+                    reg_pass_conf = st.text_input("🔑 პაროლის დადასტურება (* სავალდებულო):", type="password")
                     
                     submitted_reg = st.form_submit_button("💾 რეგისტრაციის დასრულება", use_container_width=True)
                     if submitted_reg:
@@ -286,25 +313,26 @@ def render_login(is_lock_screen=False):
                             try:
                                 conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
                                 cursor = conn.cursor()
-                                # ვინახავთ ექიმს რეესტრში საწყისი 0 ან 30 კრედიტით
+                                
+                                # ექიმის დამატება doctors რეესტრში
                                 cursor.execute("""
                                     INSERT OR REPLACE INTO doctors (name, specialty, credits, clinic, email, phone, notes, expiry_date, last_updated)
                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                                 """, (reg_name.strip(), reg_spec, 30, reg_clinic, reg_email.strip(), reg_phone.strip(), "თვითრეგისტრირებული ექიმი", "2028-12-31", datetime.now().strftime("%Y-%m-%d")))
                                 
-                                # ვინახავთ პაროლსაც settings ცხრილში, რომ ექიმმა პორტალში შესვლა შეძლოს
+                                # პაროლის და ლოგინის შენახვა settings ცხრილში (სადაც ზუსტი ელ-ფოსტა იწერება როგორც ლოგინი)
                                 pass_hash = hash_password(reg_pass)
-                                clean_login = reg_email.strip().lower().replace("@", "").replace(".", "")
+                                exact_login = reg_email.strip().lower()
                                 cursor.execute("""
                                     INSERT OR REPLACE INTO settings (manager_login, display_name, password, role) 
                                     VALUES (?, ?, ?, ?)
-                                """, (clean_login, reg_name.strip(), pass_hash, "doctor"))
+                                """, (exact_login, reg_name.strip(), pass_hash, "doctor"))
                                 
                                 conn.commit()
                                 conn.close()
                                 
                                 log_action(reg_name.strip(), "ექიმის თვითრეგისტრაცია", reg_name.strip(), f"კლინიკა: {reg_clinic}")
-                                st.success("✅ რეგისტრაცია წარმატებით დასრულდა! ახლა შეგიძლიათ სისტემაში შესვლა.")
+                                st.success("✅ რეგისტრაცია წარმატებით დასრულდა! ახლა შეგიძლიათ თქვენი ელ-ფოსტით სისტემაში შესვლა.")
                                 st.session_state.show_register = False
                                 st.rerun()
                             except Exception as e:
