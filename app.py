@@ -302,12 +302,12 @@ st.markdown(f"""
             border: 1px solid rgba(129, 140, 248, 0.25); border-left: 8px solid #6366f1;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
             margin-bottom: 25px; backdrop-filter: blur(20px);
-        }
+        }}
         .login-card-container {{
             background: {card_bg};
             padding: 30px 20px; border-radius: 20px; border: 1px solid rgba(129, 140, 248, 0.3);
             box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3); width: 100%; margin: 10px auto; position: relative; overflow: hidden; text-align: center;
-        }
+        }}
         .login-title {{ color: {text_color}; text-align: center; font-size: 22px; font-weight: 800; margin-bottom: 6px; }}
         .login-subtitle {{ color: {subtext_color}; text-align: center; font-size: 13px; margin-bottom: 0px; }}
         section[data-testid="stSidebar"] {{
@@ -363,7 +363,6 @@ st.markdown(f"""
 # --- 🧭 საიდბარი (მენიუ & თემის გადამრთველი) ---
 st.sidebar.markdown(f"**👤 მომხმარებელი:** {st.session_state.current_user}")
 
-# საიტის შიდა თემის გადამრთველი (Dark / Light)
 theme_choice = st.sidebar.selectbox("🎨 საიტის თემა (Theme):", ["Dark (მუქი)", "Light (ნათელი)"], index=0 if st.session_state.app_theme == "Dark (მუქი)" else 1)
 if theme_choice != st.session_state.app_theme:
     st.session_state.app_theme = theme_choice
