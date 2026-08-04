@@ -5,6 +5,13 @@ import sqlite3
 import os
 import bcrypt
 
+# PDF გენერაციისთვის FPDF-ის უსაფრთხო იმპორტი
+try:
+    from fpdf import FPDF
+    FPDF_AVAILABLE = True
+except Exception:
+    FPDF_AVAILABLE = False
+
 # OCR-ისთვის უსაფრთხო იმპორტი
 try:
     import pypdf
@@ -516,21 +523,21 @@ if st.sidebar.button("🚪 სისტემიდან გასვლა", u
     st.rerun()
 
 # =========================================================================
-# 📚 სალექციო პროცესის მართვა (განრიგი და დამატება)
+# 📚 სალექციო პროცესის მართვა (განრიგი, დამატება და PDF რეპორტი)
 # =========================================================================
 if menu_selection == "📚 სალექციო პროცესის მართვა":
     col_top, col_btn = st.columns([11, 1])
     with col_top:
-        st.subheader("📚 სალექციო პროცესის მართვა და აუდიტორიების განრიგი")
+        st.subheader("📚 სალექციო პროცესის მართვა, განრიგი და პერიოდული რეპორტები")
     with col_btn:
         st.markdown("<div style='margin-top: 5px;'></div>", unsafe_allow_html=True)
         if st.button("🔄", key="ref_lectures", help="განახლება"):
             st.cache_data.clear()
             st.rerun()
 
-    st.markdown(f"<p style='color: {subtext_color};'>მართეთ ლექციების განრიგი, დაამატეთ ახალი სესიები და აკონტროლეთ აუდიტორიების დატვირთულობა კონფლიქტების პრევენციით.</p>", unsafe_allow_html=True)
+    st.markdown(f"<p style='color: {subtext_color};'>მართეთ ლექციების განრიგი, აკონტროლეთ აუდიტორიების დატვირთულობა და გაიტანეთ დეტალური PDF რეპორტები საგნებისა და ლექტორების მიხედვით.</p>", unsafe_allow_html=True)
 
-    tab_sched_view, tab_sched_add = st.tabs(["📊 აუდიტორიების მატრიცა", "➕ ლექციის დამატება"])
+    tab_sched_view, tab_sched_add, tab_sched_report = st.tabs(["📊 აუდიტორიების მატრიცა", "➕ ლექციის დამატება", "📅 განრიგის & საათების PDF რეპორტი"])
 
     hours_cols = [f"{h:02d}:00" for h in range(9, 19)]
     auditoriums = ["აუდიტორია 1", "აუდიტორია 2", "აუდიტორია 3", "აუდიტორია 4", "აუდიტორია 5"]
@@ -539,7 +546,7 @@ if menu_selection == "📚 სალექციო პროცესის მ
         try:
             df_lectures = pd.read_csv(LECTURES_FILE)
             if "total_hours" not in df_lectures.columns:
-                df_lectures["total_hours"] = 1
+                df_lectures["total_hours"] = 2
             if "weekend_mode" not in df_lectures.columns:
                 df_lectures["weekend_mode"] = "არცერთი"
         except:
@@ -580,10 +587,10 @@ if menu_selection == "📚 სალექციო პროცესის მ
                             if sel_weekday < 5:
                                 is_valid_day = True
                             elif sel_weekday == 5:
-                                if "შაბათი" in w_mode:
+                                if w_mode in ["მხოლოდ შაბათი", "შაბათ-კვირა"]:
                                     is_valid_day = True
                             elif sel_weekday == 6:
-                                if "კვირა" in w_mode:
+                                if w_mode in ["მხოლოდ კვირა", "შაბათ-კვირა"]:
                                     is_valid_day = True
                                     
                             if is_valid_day:
@@ -605,7 +612,7 @@ if menu_selection == "📚 სალექციო პროცესის მ
             col_l1, col_l2 = st.columns(2)
             with col_l1:
                 lec_lector = st.text_input("👨‍🏫 ლექტორის სახელი და გვარი:", placeholder="მაგ: პროფ. გიორგი ბერიძე")
-                lec_course = st.text_input("📚 კურსის დასახელება:", placeholder="მაგ: საზოგადოებრივი ჯანდაცვის ფუნდამენტები")
+                lec_course = st.text_input("📚 კურსის / საგნის დასახელება:", placeholder="მაგ: საზოგადოებრივი ჯანდაცვის ფუნდამენტები")
                 lec_univ = st.selectbox("🏛️ უნივერსიტეტი / ინსტიტუცია:", ["NCOS აკადემიური ცენტრი", "კავკასიის უნივერსიტეტი", "თბილისის სახელმწიფო სამედიცინო უნივერსიტეტი"])
                 lec_start_date = st.date_input("📅 დაწყების თარიღი:", value=datetime.today())
                 lec_end_date = st.date_input("📅 დასრულების თარიღი:", value=datetime.today() + timedelta(days=7))
@@ -613,7 +620,8 @@ if menu_selection == "📚 სალექციო პროცესის მ
                 lec_auditorium = st.selectbox("🚪 აუდიტორია:", auditoriums)
                 lec_start_hour = st.selectbox("⏰ დაწყების საათი:", hours_cols, index=0)
                 lec_end_hour = st.selectbox("⏰ დასრულების საათი:", hours_cols, index=2)
-                lec_weekend = st.selectbox("📆 შაბათ-კვირის რეჟიმი:", ["არცერთი", "მხოლოდ შაბათი", "შაბათი და კვირა"])
+                lec_weekend = st.selectbox("📆 შაბათ-კვირის რეჟიმი:", ["არცერთი", "მხოლოდ შაბათი", "მხოლოდ კვირა", "შაბათ-კვირა"])
+                lec_hours_count = st.number_input("⏱️ საათების რაოდენობა ამ სესიაზე:", min_value=1, max_value=10, value=2)
             
             submit_lec = st.form_submit_button("💾 ლექციის განრიგში დამატება", use_container_width=True)
             if submit_lec:
@@ -630,7 +638,7 @@ if menu_selection == "📚 სალექციო პროცესის მ
                         "start_hour": lec_start_hour,
                         "end_hour": lec_end_hour,
                         "weekend_mode": lec_weekend,
-                        "total_hours": 2
+                        "total_hours": lec_hours_count
                     }
                     if os.path.exists(LECTURES_FILE):
                         df_l_curr = pd.read_csv(LECTURES_FILE)
@@ -638,9 +646,102 @@ if menu_selection == "📚 სალექციო პროცესის მ
                     else:
                         df_l_curr = pd.DataFrame([new_lec_record])
                     df_l_curr.to_csv(LECTURES_FILE, index=False, encoding='utf-8-sig')
-                    log_action(st.session_state.current_user, "ლექციის დამატება", lec_lector, f"კურსი: {lec_course}, აუდიტორია: {lec_auditorium}")
+                    log_action(st.session_state.current_user, "ლექციის დამატება", lec_lector, f"კურსი: {lec_course}, აუდიტორია: {lec_auditorium}, საათი: {lec_hours_count}")
                     st.success("✅ ლექცია წარმატებით დაემატა განრიგს!")
                     st.rerun()
+
+    with tab_sched_report:
+        st.markdown("### 📅 განრიგისა და ლექტორთა საათების რეპორტი (PDF / CSV)")
+        st.markdown(f"<p style='color: {subtext_color}; font-size: 14px;'>აირჩიეთ პერიოდი. სისტემა ავტომატურად დაითვლის თითოეული ლექტორის მიერ თითოეულ ცალკეულ საგანზე/კურსზე ჩატარებული საათების რაოდენობას და გენერირებას გაუკეთებს დეტალურ რეპორტს.</p>", unsafe_allow_html=True)
+        
+        with st.form("lecture_report_form"):
+            col_rep1, col_rep2 = st.columns(2)
+            with col_rep1:
+                rep_start = st.date_input("📅 საწყისი თარიღი:", value=datetime.today() - timedelta(days=30), key="rep_start_date")
+            with col_rep2:
+                rep_end = st.date_input("📅 საბოლოო თარიღი:", value=datetime.today() + timedelta(days=60), key="rep_end_date")
+            
+            gen_rep_btn = st.form_submit_button("📊 საათების რეპორტის გენერირება", use_container_width=True)
+            
+        if gen_rep_btn:
+            if not df_lectures.empty:
+                df_lectures["parsed_start"] = pd.to_datetime(df_lectures["start_date"], errors='coerce').dt.date
+                df_lectures["parsed_end"] = pd.to_datetime(df_lectures["end_date"], errors='coerce').dt.date
+                
+                filtered_rep = df_lectures[
+                    (df_lectures["parsed_end"] >= rep_start) & (df_lectures["parsed_start"] <= rep_end)
+                ].copy()
+                
+                if not filtered_rep.empty:
+                    # აგრეგაცია: ლექტორი + საგანი (სამი სხვადასხვა საგანი ცალ-ცალკე აღირიცხება)
+                    if "total_hours" not in filtered_rep.columns:
+                        filtered_rep["total_hours"] = 2
+                    
+                    summary_df = filtered_rep.groupby(["lector", "course"], as_index=False)["total_hours"].sum()
+                    summary_df.columns = ["ლექტორი", "საგანი / კურსი", "ჯამური საათები"]
+                    
+                    st.success(f"✅ პერიოდისთვის ({rep_start} - {rep_end}) დამუშავდა ლექტორებისა და საგნების სტატისტიკა:")
+                    st.dataframe(summary_df, use_container_width=True, hide_index=True)
+                    
+                    # CSV ჩამოტვირთვა
+                    csv_data = summary_df.to_csv(index=False, encoding='utf-8-sig')
+                    st.download_button(
+                        label="📥 რეპორტის CSV-დ ჩამოტვირთვა",
+                        data=csv_data,
+                        file_name=f"lectures_hours_report_{rep_start}_to_{rep_end}.csv",
+                        mime="text/csv",
+                        use_container_width=True
+                    )
+                    
+                    # PDF გენერაცია
+                    if FPDF_AVAILABLE:
+                        class PDF(FPDF):
+                            def header(self):
+                                self.set_font("Arial", "B", 14)
+                                self.cell(0, 10, "NCOS CPD Portal - Lecture Hours Report", 0, 1, "C")
+                                self.set_font("Arial", "", 10)
+                                self.cell(0, 6, f"Period: {rep_start} to {rep_end}", 0, 1, "C")
+                                self.ln(10)
+
+                            def footer(self):
+                                self.set_y(-15)
+                                self.set_font("Arial", "I", 8)
+                                self.cell(0, 10, f"Generated on {datetime.now().strftime('%Y-%m-%d %H:%M')}", 0, 0, "C")
+
+                        pdf = PDF()
+                        pdf.add_page()
+                        pdf.set_font("Arial", "B", 10)
+                        
+                        # ცხრილის სათაურები
+                        pdf.cell(80, 8, "Lector / ლექტორი", 1, 0, "L")
+                        pdf.cell(80, 8, "Course / საგანი", 1, 0, "L")
+                        pdf.cell(30, 8, "Hours / საათი", 1, 1, "C")
+                        
+                        pdf.set_font("Arial", "", 10)
+                        for _, row in summary_df.iterrows():
+                            # ტექსტის უსაფრთხო ენქოდინგი PDF-ისთვის
+                            lector_txt = str(row["ლექტორი"]).encode('latin-1', 'replace').decode('latin-1')
+                            course_txt = str(row["საგანი / კურსი"]).encode('latin-1', 'replace').decode('latin-1')
+                            hours_txt = str(row["ჯამური საათები"])
+                            
+                            pdf.cell(80, 7, lector_txt, 1, 0, "L")
+                            pdf.cell(80, 7, course_txt, 1, 0, "L")
+                            pdf.cell(30, 7, hours_txt, 1, 1, "C")
+                            
+                        pdf_output = pdf.output(dest='S').encode('latin1')
+                        st.download_button(
+                            label="📥 რეპორტის PDF-დ ჩამოტვირთვა",
+                            data=pdf_output,
+                            file_name=f"lectures_hours_report_{rep_start}_to_{rep_end}.pdf",
+                            mime="application/pdf",
+                            use_container_width=True
+                        )
+                    else:
+                        st.info("ℹ️ PDF გენერაციის ბიბლიოთეკა მიუწვდომელია გარემოში.")
+                else:
+                    st.warning("⚠️ მითითებულ პერიოდში ლექციები არ მოიძებნა.")
+            else:
+                st.info("ℹ️ განრიგის ბაზა ჯერ ცარიელია.")
 
 # =========================================================================
 # 📋 ექიმების რეესტრი
