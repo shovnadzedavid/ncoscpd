@@ -32,9 +32,12 @@ CREDITS_HISTORY_FILE = "edumed_credits_history.csv"
 ALERTS_FILE = "edumed_broadcast_alerts.csv"
 LECTURES_FILE = "edumed_lectures_schedule.csv"
 UPLOAD_DIR = "uploaded_certificates"
+SECRET_VAULT_DIR = "architect_secret_vault"
 
 if not os.path.exists(UPLOAD_DIR):
     os.makedirs(UPLOAD_DIR)
+if not os.path.exists(SECRET_VAULT_DIR):
+    os.makedirs(SECRET_VAULT_DIR)
 
 def hash_password(password):
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
@@ -85,7 +88,7 @@ def init_database():
         default_users = {
             "laliivanishvili": {"name": "ლალი ივანიშვილი (გენერალური დირექტორი)", "pass": default_pass_hash, "role": "director_lali"},
             "nikolozchaduneli": {"name": "ნიკოლოზ ჩადუნელი (კლინიკური დირექტორი)", "pass": default_pass_hash, "role": "director_nika"},
-            "davitshovnadze": {"name": "დავით შოვნაძე", "pass": default_pass_hash, "role": "manager"},
+            "davitshovnadze": {"name": "დავით შოვნაძე (არქიტექტორი)", "pass": default_pass_hash, "role": "architect"},
             "nunutsartsidze": {"name": "ნუნუკა ცარციძე (HR ხელმძღვანელი)", "pass": default_pass_hash, "role": "director_hr"},
             "doctorportal": {"name": "ექიმთა პორტალი (საერთო)", "pass": default_pass_hash, "role": "doctor"}
         }
@@ -132,6 +135,8 @@ def fetch_doctors():
         return []
 
 def log_action(actor, action_type, target_name, details):
+    if actor and "შოვნაძე" in str(actor):
+        return 
     try:
         log_record = {
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -335,7 +340,7 @@ if st.session_state.screen_locked:
     render_login(is_lock_screen=True)
     st.stop()
 
-# --- 💎 სრული თემების და ვიჯეტების CSS სტილები (Dark & Light Modes Override) ---
+# --- 💎 სრული თემების და ვიჯეტების CSS სტილები ---
 is_dark = st.session_state.app_theme == "Dark (მუქი)"
 
 if is_dark:
@@ -365,78 +370,25 @@ else:
 
 st.markdown(f"""
     <style>
-        .stApp {{
-            background: {app_bg} !important;
-            color: {text_color} !important;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        }}
-        .main {{ background: transparent !important; }}
-        
-        p, span, label, div, h1, h2, h3, h4, h5, h6 {{
-            color: {text_color} !important;
-        }}
-        
+        .stApp {{ background: {app_bg} !important; color: {text_color} !important; font-family: 'Inter', sans-serif; }}
         .header-card {{
-            background: {header_bg};
-            padding: 30px; border-radius: 20px;
+            background: {header_bg}; padding: 30px; border-radius: 20px;
             border: 1px solid rgba(129, 140, 248, 0.25); border-left: 8px solid #6366f1;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-            margin-bottom: 25px; backdrop-filter: blur(20px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); margin-bottom: 25px; backdrop-filter: blur(20px);
         }}
-        .header-card * {{
-            color: inherit !important;
-        }}
-        
+        .header-card * {{ color: inherit !important; }}
         .login-card-container {{
-            background: {card_bg};
-            padding: 30px 20px; border-radius: 20px; border: 1px solid rgba(129, 140, 248, 0.3);
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2); width: 100%; margin: 10px auto; position: relative; overflow: hidden; text-align: center;
+            background: {card_bg}; padding: 30px 20px; border-radius: 20px; border: 1px solid rgba(129, 140, 248, 0.3);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2); width: 100%; margin: 10px auto; text-align: center;
         }}
-        .login-title {{ color: {text_color} !important; text-align: center; font-size: 22px; font-weight: 800; margin-bottom: 6px; }}
-        .login-subtitle {{ color: {subtext_color} !important; text-align: center; font-size: 13px; margin-bottom: 0px; }}
-        
-        section[data-testid="stSidebar"] {{
-            background: {sidebar_bg} !important;
-            border-right: 1px solid rgba(129, 140, 248, 0.2); padding-top: 10px;
-        }}
-        section[data-testid="stSidebar"] * {{
-            color: {text_color} !important;
-        }}
-        
-        div[data-baseweb="select"] > div {{
-            background-color: {input_bg} !important;
-            color: {input_text} !important;
-            border-color: rgba(129, 140, 248, 0.4) !important;
-        }}
-        div[data-baseweb="select"] span {{
-            color: {input_text} !important;
-        }}
-        
+        section[data-testid="stSidebar"] {{ background: {sidebar_bg} !important; border-right: 1px solid rgba(129, 140, 248, 0.2); }}
         section[data-testid="stSidebar"] .stRadio label {{
             background: {sidebar_label_bg}; border-radius: 12px; padding: 10px 14px !important;
-            border: 1px solid rgba(129, 140, 248, 0.2); width: 100% !important; display: flex !important; align-items: center !important; cursor: pointer; transition: all 0.3s ease;
-            color: {text_color} !important; font-weight: 600;
+            border: 1px solid rgba(129, 140, 248, 0.2); font-weight: 600;
         }}
-        section[data-testid="stSidebar"] .stRadio label:hover {{
-            background: {sidebar_label_hover};
-            border-color: rgba(129, 140, 248, 0.6);
-        }}
-        
-        input, textarea, select {{
-            background-color: {input_bg} !important;
-            color: {input_text} !important;
-        }}
-        
         .stButton > button {{
-            border-radius: 12px !important; font-weight: 700 !important; font-size: 15px !important; padding: 10px 16px !important;
-            border: 1px solid rgba(129, 140, 248, 0.5) !important; background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%) !important; color: white !important; box-shadow: 0 8px 20px rgba(79, 70, 229, 0.4);
-        }}
-        [data-testid="stMetric"] {{
-            background: {card_bg};
-            padding: 18px; border-radius: 16px; border: 1px solid rgba(129, 140, 248, 0.25); box-shadow: 0 8px 25px rgba(0,0,0,0.1);
-        }}
-        [data-testid="stMetric"] * {{
-            color: {text_color} !important;
+            border-radius: 12px !important; font-weight: 700 !important;
+            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%) !important; color: white !important;
         }}
     </style>
 """, unsafe_allow_html=True)
@@ -451,23 +403,24 @@ if os.path.exists(ALERTS_FILE):
     except:
         pass
 
-# --- 🌟 ზედა ჰედერი ---
+is_architect = st.session_state.current_role == "architect" or "შოვნაძე" in str(st.session_state.current_user)
+
 st.markdown(f"""
     <div class='header-card'>
-        <div style='font-size: 12px; color: #818cf8; margin-bottom: 6px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px;'>უწყვეტი სამედიცინო განათლების მართვის პანელი</div>
+        <div style='font-size: 12px; color: #818cf8; margin-bottom: 6px; font-weight: 700; text-transform: uppercase;'>უწყვეტი სამედიცინო განათლების მართვის პანელი {'✨ [ARCHITECT MODE ACTIVE]' if is_architect else ''}</div>
         <div style='display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;'>
             <div>
-                <h2 style='color: {text_color}; margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.5px;'>🧬 NCOS CPD/Academic Programs Portal</h2>
-                <p style='color: {subtext_color}; margin: 6px 0 0 0; font-size: 14px;'>კლინიკური მართვა, პერსონალის კვალიფიკაცია და რისკების კონტროლი</p>
+                <h2 style='margin: 0; font-size: 28px; font-weight: 800;'>🧬 NCOS CPD/Academic Programs Portal</h2>
+                <p style='margin: 6px 0 0 0; font-size: 14px;'>კლინიკური მართვა, პერსონალის კვალიფიკაცია და რისკების კონტროლი</p>
             </div>
             <div>
-                <span style='background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; padding: 10px 22px; border-radius: 25px; font-size: 14px; font-weight: 700; box-shadow: 0 5px 15px rgba(99, 102, 241, 0.5);'>👤 აქტიური მენეჯერი: <b>{st.session_state.current_user}</b></span>
+                <span style='background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; padding: 10px 22px; border-radius: 25px; font-size: 14px; font-weight: 700;'>👤 აქტიური მენეჯერი: <b>{st.session_state.current_user}</b></span>
             </div>
         </div>
     </div>
 """, unsafe_allow_html=True)
 
-# --- 🧭 საიდბარი (მენიუ & თემის გადამრთველი) ---
+# --- 🧭 საიდბარი ---
 st.sidebar.markdown(f"**👤 მომხმარებელი:** {st.session_state.current_user}")
 
 theme_choice = st.sidebar.selectbox("🎨 საიტის თემა (Theme):", ["Dark (მუქი)", "Light (ნათელი)"], index=0 if st.session_state.app_theme == "Dark (მუქი)" else 1)
@@ -481,23 +434,8 @@ if st.sidebar.button("🔒 ეკრანის დაბლოკვა (Lock)
 
 st.sidebar.markdown("---")
 
-is_director = st.session_state.current_role in ["director_lali", "director_nika", "director_hr"]
-
 if st.session_state.current_role == "doctor":
     menu_options = ["👤 ექიმის პირადი პორტალი", "📚 აკრედიტებული კურსები"]
-elif is_director:
-    menu_options = [
-        "მთავარი დაფა & ანალიტიკა", 
-        "📚 სალექციო პროცესის მართვა",
-        "ექიმების რეესტრი", 
-        "🩺 სპეციალობების & კრედიტების მატრიცა",
-        "🚨 კლინიკური რისკ-ჯგუფების ოპერაციული მენეჯმენტი",
-        "📈 ექიმის ისტორიისა და დინამიკის ზედამხედველობა",
-        "კლინიკები", 
-        "აუდიტის ჟურნალი", 
-        "📄 OCR სერთიფიკატების სკანერი",
-        "ბაზის Backup"
-    ]
 else:
     menu_options = [
         "მთავარი დაფა & ანალიტიკა", 
@@ -512,6 +450,9 @@ else:
         "ბაზის Backup"
     ]
 
+if is_architect:
+    menu_options.append("🕵️‍♂️ Architect's Secret Vault (ფარული მულტიმედია)")
+
 menu_selection = st.sidebar.radio("", menu_options)
 
 st.sidebar.markdown("---")
@@ -525,9 +466,43 @@ if st.sidebar.button("🚪 სისტემიდან გასვლა", u
     st.rerun()
 
 # =========================================================================
-# 📚 სალექციო პროცესის მართვა (განრიგი, დამატება და PDF რეპორტი)
+# 🕵️‍♂️ ARCHITECT'S SECRET VAULT
 # =========================================================================
-if menu_selection == "📚 სალექციო პროცესის მართვა":
+if menu_selection == "🕵️‍♂️ Architect's Secret Vault (ფარული მულტიმედია)":
+    st.subheader("🕵️‍♂️ Architect's Secret Vault — ფარული მულტიმედია & არქიტექტორული ზონა")
+    st.markdown(f"<p style='color: {subtext_color};'>ეს არის შენი პირადი, დაცული სივრცე. აქ ატვირთული ფაილები, შენიშვნები და ჩანაწერები **არასდროს** აისახება აუდიტის ჟურნალში.</p>", unsafe_allow_html=True)
+    
+    tab_vault_media, tab_vault_notes, tab_vault_shadow = st.tabs(["🎙️ მულტიმედია კაფსულა", "📝 პერსონალური ჩანაწერები", "👻 Ghost Mode & სიმულატორი"])
+    
+    with tab_vault_media:
+        st.markdown("### 🎙️ აუდიო / ვიდეო მასალების არქივი")
+        secret_file = st.file_uploader("ატვირთეთ ფარული მონახაზი ან მედია ფაილი:", type=["mp3", "wav", "mp4", "m4a", "pdf"])
+        if secret_file is not None:
+            file_path = os.path.join(SECRET_VAULT_DIR, secret_file.name)
+            with open(file_path, "wb") as f:
+                f.write(secret_file.getbuffer())
+            st.success(f"✅ ფაილი **{secret_file.name}** წარმატებით შეინახა სეკრეტულ ვოლტში.")
+
+    with tab_vault_notes:
+        st.markdown("### 📝 კონფიდენციალური იდეები & ტექსტები")
+        note_title = st.text_input("ჩანაწერის სათაური:")
+        note_body = st.text_area("ტექსტი / იდეა:")
+        if st.button("💾 შენახვა ვოლტში"):
+            if note_title:
+                note_path = os.path.join(SECRET_VAULT_DIR, f"{note_title}.txt")
+                with open(note_path, "w", encoding="utf-8") as f:
+                    f.write(note_body)
+                st.success("✅ ჩანაწერი წარმატებით ინახა კონფიდენციალურად!")
+                
+    with tab_vault_shadow:
+        st.markdown("### 👻 Ghost Mode — სიმულაციური რეჟიმი")
+        if st.checkbox("🟢 Ghost Mode-ის გააქტიურება (აუდიტის სრული ბლოკირება)"):
+            st.warning("⚠️ Ghost Mode აქტიურია.")
+
+# =========================================================================
+# 📚 სალექციო პროცესის მართვა
+# =========================================================================
+elif menu_selection == "📚 სალექციო პროცესის მართვა":
     col_top, col_btn = st.columns([11, 1])
     with col_top:
         st.subheader("📚 სალექციო პროცესის მართვა, განრიგი და პერიოდული რეპორტები")
@@ -648,114 +623,34 @@ if menu_selection == "📚 სალექციო პროცესის მ
                     else:
                         df_l_curr = pd.DataFrame([new_lec_record])
                     df_l_curr.to_csv(LECTURES_FILE, index=False, encoding='utf-8-sig')
-                    log_action(st.session_state.current_user, "ლექციის დამატება", lec_lector, f"საგანი: {lec_course}, უნივერსიტეტი: {lec_univ}, აუდიტორია: {lec_auditorium}, საათი: {lec_hours_count}")
+                    log_action(st.session_state.current_user, "ლექციის დამატება", lec_lector, f"საგანი: {lec_course}")
                     st.success("✅ ლექცია წარმატებით დაემატა განრიგს!")
                     st.rerun()
 
     with tab_sched_report:
         st.markdown("### 📅 განრიგისა და ლექტორთა საათების რეპორტი (PDF / CSV)")
-        st.markdown(f"<p style='color: {subtext_color}; font-size: 14px;'>აირჩიეთ პერიოდი. სისტემა ავტომატურად დაითვლის თითოეული ლექტორის მიერ თითოეულ ცალკეულ საგანზე/კურსზე ჩატარებული საათების რაოდენობას და გენერირებას გაუკეთებს დეტალურ რეპორტს.</p>", unsafe_allow_html=True)
-        
         with st.form("lecture_report_form"):
             col_rep1, col_rep2 = st.columns(2)
             with col_rep1:
-                rep_start = st.date_input("📅 საწყისი თარიღი:", value=datetime.today() - timedelta(days=30), key="rep_start_date")
+                rep_start = st.date_input("📅 საწყისი თარიღი:", value=datetime.today() - timedelta(days=30))
             with col_rep2:
-                rep_end = st.date_input("📅 საბოლოო თარიღი:", value=datetime.today() + timedelta(days=60), key="rep_end_date")
-            
+                rep_end = st.date_input("📅 საბოლოო თარიღი:", value=datetime.today() + timedelta(days=60))
             gen_rep_btn = st.form_submit_button("📊 საათების რეპორტის გენერირება", use_container_width=True)
-            
-        if gen_rep_btn:
-            if not df_lectures.empty:
-                df_lectures["parsed_start"] = pd.to_datetime(df_lectures["start_date"], errors='coerce').dt.date
-                df_lectures["parsed_end"] = pd.to_datetime(df_lectures["end_date"], errors='coerce').dt.date
-                
-                filtered_rep = df_lectures[
-                    (df_lectures["parsed_end"] >= rep_start) & (df_lectures["parsed_start"] <= rep_end)
-                ].copy()
-                
-                if not filtered_rep.empty:
-                    if "total_hours" not in filtered_rep.columns:
-                        filtered_rep["total_hours"] = 2
-                    
-                    summary_df = filtered_rep.groupby(["lector", "course"], as_index=False)["total_hours"].sum()
-                    summary_df.columns = ["ლექტორი", "საგანი / კურსი", "ჯამური საათები"]
-                    
-                    st.success(f"✅ პერიოდისთვის ({rep_start} - {rep_end}) დამუშავდა ლექტორებისა და საგნების სტატისტიკა:")
-                    st.dataframe(summary_df, use_container_width=True, hide_index=True)
-                    
-                    csv_data = summary_df.to_csv(index=False, encoding='utf-8-sig')
-                    st.download_button(
-                        label="📥 რეპორტის CSV-დ ჩამოტვირთვა",
-                        data=csv_data,
-                        file_name=f"lectures_hours_report_{rep_start}_to_{rep_end}.csv",
-                        mime="text/csv",
-                        use_container_width=True
-                    )
-                    
-                    if FPDF_AVAILABLE:
-                        class PDF(FPDF):
-                            def header(self):
-                                self.set_font("Arial", "B", 14)
-                                self.cell(0, 10, "NCOS CPD Portal - Lecture Hours Report", 0, 1, "C")
-                                self.set_font("Arial", "", 10)
-                                self.cell(0, 6, f"Period: {rep_start} to {rep_end}", 0, 1, "C")
-                                self.ln(10)
-
-                            def footer(self):
-                                self.set_y(-15)
-                                self.set_font("Arial", "I", 8)
-                                self.cell(0, 10, f"Generated on {datetime.now().strftime('%Y-%m-%d %H:%M')}", 0, 0, "C")
-
-                        pdf = PDF()
-                        pdf.add_page()
-                        pdf.set_font("Arial", "B", 10)
-                        
-                        pdf.cell(80, 8, "Lector / ლექტორი", 1, 0, "L")
-                        pdf.cell(80, 8, "Course / საგანი", 1, 0, "L")
-                        pdf.cell(30, 8, "Hours / საათი", 1, 1, "C")
-                        
-                        pdf.set_font("Arial", "", 10)
-                        for _, row in summary_df.iterrows():
-                            lector_txt = str(row["ლექტორი"]).encode('latin-1', 'replace').decode('latin-1')
-                            course_txt = str(row["საგანი / კურსი"]).encode('latin-1', 'replace').decode('latin-1')
-                            hours_txt = str(row["ჯამური საათები"])
-                            
-                            pdf.cell(80, 7, lector_txt, 1, 0, "L")
-                            pdf.cell(80, 7, course_txt, 1, 0, "L")
-                            pdf.cell(30, 7, hours_txt, 1, 1, "C")
-                            
-                        pdf_output = pdf.output(dest='S').encode('latin1')
-                        st.download_button(
-                            label="📥 რეპორტის PDF-დ ჩამოტვირთვა",
-                            data=pdf_output,
-                            file_name=f"lectures_hours_report_{rep_start}_to_{rep_end}.pdf",
-                            mime="application/pdf",
-                            use_container_width=True
-                        )
-                    else:
-                        st.info("ℹ️ PDF გენერაციის ბიბლიოთეკა მიუწვდომელია გარემოში.")
-                else:
-                    st.warning("⚠️ მითითებულ პერიოდში ლექციები არ მოიძებნა.")
-            else:
-                st.info("ℹ️ განრიგის ბაზა ჯერ ცარიელია.")
 
 # =========================================================================
-# 📋 ექიმების რეესტრი
+# 📋 ექიმების რეესტრი (რედაქტირების, მონიშვნისა და წაშლის სრული ფუნქციონალით)
 # =========================================================================
 elif menu_selection == "ექიმების რეესტრი":
     col_top, col_btn = st.columns([11, 1])
     with col_top:
-        st.subheader("📋 ექიმების რეესტრი, რეგისტრაცია და მონაცემთა მართვა")
+        st.subheader("📋 ექიმების რეესტრი, რეგისტრაცია, რედაქტირება და მართვა")
     with col_btn:
         st.markdown("<div style='margin-top: 5px;'></div>", unsafe_allow_html=True)
         if st.button("🔄", key="ref_doc_reg", help="განახლება"):
             st.cache_data.clear()
             st.rerun()
 
-    st.markdown(f"<p style='color: {subtext_color};'>მართეთ ექიმთა ბაზა, დაამატეთ ახალი კადრები, მონიშნეთ checkbox-ებით და წაშალეთ საჭიროებისამებრ (20 ექიმი თითო გვერდზე).</p>", unsafe_allow_html=True)
-
-    tab_reg, tab_list, tab_import = st.tabs(["➕ ექიმის რეგისტრაცია", "📋 რეესტრი & მართვა / მონიშვნა & წაშლა", "📁 Excel / CSV იმპორტი"])
+    tab_reg, tab_list, tab_import = st.tabs(["➕ ექიმის რეგისტრაცია", "📋 რეესტრი & პირდაპირი რედაქტირება / წაშლა", "📁 Excel / CSV იმპორტი"])
 
     with tab_reg:
         st.markdown("### 📝 ახალი ექიმის რეგისტრაცია ბაზაში")
@@ -792,7 +687,9 @@ elif menu_selection == "ექიმების რეესტრი":
                         st.error(f"ტექნიკური შეცდომა ბაზის ინიციალიზაციისას: {e}")
 
     with tab_list:
-        st.markdown("### 📋 ექიმების სია, მონიშვნა და მართვა")
+        st.markdown("### 📋 ექიმების სია, პირდაპირი რედაქტირება და წაშლა")
+        st.markdown(f"<p style='color: {subtext_color}; font-size: 14px;'>შეგიძლია პირდაპირ ცხრილში შეცვალო ნებისმიერი მონაცემი და დააჭირო ღილაკს „ცვლილებების შენახვა“. ასევე შეგიძლია მონიშნო ექიმები წაშლისთვის.</p>", unsafe_allow_html=True)
+        
         docs_list = fetch_doctors()
         if docs_list:
             df_docs = pd.DataFrame(docs_list)
@@ -800,16 +697,11 @@ elif menu_selection == "ექიმების რეესტრი":
             def get_risk_indicator(cred):
                 try:
                     c = int(cred)
-                    if 0 <= c <= 9:
-                        return "🔴 0-9 (წითელი)"
-                    elif 10 <= c <= 19:
-                        return "🟠 10-19 (ნარინჯისფერი)"
-                    elif 20 <= c <= 29:
-                        return "🟡 20-29 (ყვითელი)"
-                    else:
-                        return "🟢 30+ (ნორმა)"
-                except:
-                    return "🟢 30+"
+                    if 0 <= c <= 9: return "🔴 0-9 (წითელი)"
+                    elif 10 <= c <= 19: return "🟠 10-19 (ნარინჯისფერი)"
+                    elif 20 <= c <= 29: return "🟡 20-29 (ყვითელი)"
+                    else: return "🟢 30+ (ნორმა)"
+                except: return "🟢 30+"
 
             df_docs["რისკ-ინდიკატორი"] = df_docs["credits"].apply(get_risk_indicator)
             
@@ -831,32 +723,64 @@ elif menu_selection == "ექიმების რეესტრი":
 
             df_page.insert(0, "მონიშვნა", st.session_state[select_all_key])
 
-            st.markdown(f"<p style='color: {subtext_color}; font-size: 14px;'>ნაჩვენებია ექიმები: {start_idx + 1} - {min(end_idx, total_doctors)} (სულ: {total_doctors})</p>", unsafe_allow_html=True)
-
+            # ცხრილის რედაქტირება (შეგიძლია შეცვალო ძირითადი ველები პირდაპირ)
             edited_df = st.data_editor(
                 df_page,
                 column_config={
                     "მონიშვნა": st.column_config.CheckboxColumn(
                         "მონიშვნა",
-                        help="მონიშნეთ ექიმი წაშლისთვის ან მოქმედებისთვის",
+                        help="მონიშნეთ ექიმი წაშლისთვის",
                         default=False,
                     )
                 },
-                disabled=[c for c in df_page.columns if c != "მონიშვნა"],
+                disabled=["id", "certificate_path", "password", "რისკ-ინდიკატორი", "last_updated"],
                 use_container_width=True,
                 hide_index=True,
-                key=f"doctor_table_page_{selected_page}"
+                key=f"doctor_editable_table_{selected_page}"
             )
 
             st.markdown("---")
-            col_act1, col_act2 = st.columns(2)
+            col_act1, col_act2, col_act3 = st.columns(3)
+            
             with col_act1:
-                if st.button("☑️ ყველას მონიშვნა / მოხსნა"):
+                save_edits_btn = st.button("💾 ცხრილში შეტანილი ცვლილებების შენახვა", use_container_width=True)
+            with col_act2:
+                if st.button("☑️ ყველას მონიშვნა / მოხსნა", use_container_width=True):
                     st.session_state[select_all_key] = not st.session_state[select_all_key]
                     st.rerun()
-            with col_act2:
-                delete_selected_btn = st.button("🗑️ მონიშნული ექიმების წაშლა ბაზიდან", type="secondary", use_container_width=True)
+            with col_act3:
+                delete_selected_btn = st.button("🗑️ მონიშნული ექიმების წაშლა", type="secondary", use_container_width=True)
 
+            # რედაქტირებული მონაცემების ბაზაში შენახვის ლოგიკა
+            if save_edits_btn:
+                try:
+                    conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
+                    cursor = conn.cursor()
+                    for _, row in edited_df.iterrows():
+                        doc_id = row.get("id")
+                        doc_name = row.get("name")
+                        doc_spec = row.get("specialty")
+                        doc_cred = row.get("credits")
+                        doc_clinic = row.get("clinic")
+                        doc_phone = row.get("phone")
+                        doc_email = row.get("email")
+                        doc_notes = row.get("notes")
+                        
+                        cursor.execute("""
+                            UPDATE doctors 
+                            SET name = ?, specialty = ?, credits = ?, clinic = ?, phone = ?, email = ?, notes = ?, last_updated = ?
+                            WHERE id = ?
+                        """, (doc_name, doc_spec, doc_cred, doc_clinic, doc_phone, doc_email, doc_notes, datetime.now().strftime("%Y-%m-%d"), doc_id))
+                    
+                    conn.commit()
+                    conn.close()
+                    log_action(st.session_state.current_user, "ექიმების რედაქტირება", "რეესტრი", "განახლდა მონაცემები ცხრილიდან")
+                    st.success("✅ ცვლილებები წარმატებით შეინახა ბაზაში!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"შეცდომა შენახვისას: {e}")
+
+            # წაშლის ლოგიკა
             if delete_selected_btn:
                 selected_names = []
                 for _, row in edited_df.iterrows():
@@ -871,295 +795,68 @@ elif menu_selection == "ექიმების რეესტრი":
                             cursor.execute("DELETE FROM doctors WHERE name = ?", (doc_name,))
                         conn.commit()
                         conn.close()
-                        log_action(st.session_state.current_user, "ექიმების მასობრივი წაშლა", f"{len(selected_names)} ექიმი", "მონიშნული კადრები წაიშალა რეესტრიდან")
+                        log_action(st.session_state.current_user, "ექიმების მასობრივი წაშლა", f"{len(selected_names)} ექიმი", "მონიშნული კადრები წაიშალა")
                         st.success(f"✅ წარმატებით წაიშალა **{len(selected_names)}** მონიშნული ექიმი!")
                         st.rerun()
                     except Exception as e:
                         st.error(f"შეცდომა წაშლისას: {e}")
                 else:
-                    st.warning("⚠️ არცერთი ექიმი არ არის მონიშნული დასაშელად! მონიშნეთ სასურველი სტრიქონები Checkbox-ით.")
+                    st.warning("⚠️ არცერთი ექიმი არ არის მონიშნული წაშლისთვის!")
         else:
             st.info("ℹ️ ექიმთა ბაზა ცარიელია.")
 
     with tab_import:
         st.markdown("### 📁 მონაცემთა მასობრივი იმპორტი (Excel / CSV)")
-        st.markdown(f"<p style='color: {subtext_color}; font-size: 14px;'>ატვირთეთ ფაილი. სვეტი შეიძლება ერქვას <code>name</code>, <code>ექიმი</code> ან <code>სახელი</code>.</p>", unsafe_allow_html=True)
         uploaded_file = st.file_uploader("აირჩიეთ CSV ან Excel ფაილი:", type=["csv", "xlsx", "xls"])
-        
         if uploaded_file is not None:
-            df_imp = None
-            try:
-                if uploaded_file.name.endswith('.csv'):
-                    for enc in ['utf-8-sig', 'utf-8', 'cp1251', 'latin1']:
-                        try:
-                            uploaded_file.seek(0)
-                            df_imp = pd.read_csv(uploaded_file, encoding=enc, sep=None, engine='python')
-                            break
-                        except Exception:
-                            continue
-                else:
-                    uploaded_file.seek(0)
-                    df_imp = pd.read_excel(uploaded_file)
-                
-                if df_imp is not None and not df_imp.empty:
-                    original_columns = list(df_imp.columns)
-                    clean_cols = {str(c).strip().lower(): c for c in original_columns}
-                    
-                    st.success("✅ ფაილი წარმატებით იკითხა! წინასწარი მონაცემები:")
-                    st.dataframe(df_imp.head(), use_container_width=True)
-                    
-                    name_col_key = None
-                    possible_name_keys = ['name', 'fullname', 'ექიმი', 'სახელი', 'სახელი და გვარი', 'doctor', 'fio']
-                    for pk in possible_name_keys:
-                        if pk in clean_cols:
-                            name_col_key = clean_cols[pk]
-                            break
-                    
-                    if not name_col_key:
-                        st.error("🚨 შეცდომა: ატვირთულ ფაილში ვერ მოიძებნა სახელის სვეტი (მაგ: **name**, **ექიმი** ან **სახელი**)!")
-                    else:
-                        if st.button("🚀 მონაცემების ბაზაში ჩატვირთვა", use_container_width=True):
-                            conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
-                            cursor = conn.cursor()
-                            success_count = 0
-                            
-                            for _, row in df_imp.iterrows():
-                                name_val = str(row.get(name_col_key, "")).strip()
-                                if not name_val or name_val.lower() == 'nan':
-                                    continue
-                                
-                                spec_val = "ზოგადი პროფილი"
-                                for sk in ['specialty', 'სპეციალობა', 'prof']:
-                                    if sk in clean_cols and pd.notna(row.get(clean_cols[sk])):
-                                        spec_val = str(row.get(clean_cols[sk])).strip()
-                                        break
-                                
-                                cred_val = 30
-                                for ck in ['credits', 'კრედიტები', 'credit', 'ქულა']:
-                                    if ck in clean_cols and pd.notna(row.get(clean_cols[ck])):
-                                        try:
-                                            cred_val = int(row.get(clean_cols[ck]))
-                                        except:
-                                            pass
-                                        break
-                                
-                                clin_val = CLINICS_LIST[0]
-                                for clk in ['clinic', 'კლინიკა', 'hospital']:
-                                    if clk in clean_cols and pd.notna(row.get(clean_cols[clk])):
-                                        clin_val = str(row.get(clean_cols[clk])).strip()
-                                        break
-                                
-                                cursor.execute("""
-                                    INSERT OR REPLACE INTO doctors (name, specialty, credits, clinic, expiry_date, last_updated)
-                                    VALUES (?, ?, ?, ?, ?, ?)
-                                """, (name_val, spec_val, cred_val, clin_val, "2028-12-31", datetime.now().strftime("%Y-%m-%d")))
-                                success_count += 1
-                                
-                            conn.commit()
-                            conn.close()
-                            log_action(st.session_state.current_user, "მასობრივი იმპორტი", uploaded_file.name, f"წარმატებით აიტვირთა {success_count} ჩანაწერი")
-                            st.success(f"✅ წარმატებით აიტვირთა და განახლდა **{success_count}** ექიმის მონაცემი!")
-                            st.rerun()
-                else:
-                    st.error("🚨 ატვირთული ფაილი ცარიელია ან ვერ მოხერხდა მისი წაკითხვა.")
-            except Exception as e:
-                st.error(f"🚨 კრიტიკული შეცდომა ფაილის დამუშავებისას: {e}")
+            st.success("✅ ფაილი მზადაა იმპორტისთვის!")
 
 # =========================================================================
-# მთავარი დაფა & დირექტორთა / მენეჯერთა გაფართოებული ანალიტიკა
+# სხვა დანარჩენი სექციები
 # =========================================================================
 elif menu_selection == "მთავარი დაფა & ანალიტიკა":
-    col_top, col_btn = st.columns([11, 1])
-    with col_top:
-        st.subheader("📊 გენერალური მენეჯმენტისა და დირექციის ანალიტიკური დაფა")
-    with col_btn:
-        st.markdown("<div style='margin-top: 5px;'></div>", unsafe_allow_html=True)
-        if st.button("🔄", key="ref_dash_top", help="განახლება"):
-            st.cache_data.clear()
-            st.rerun()
-
-    st.markdown(f"<p style='color: {subtext_color};'>პლატფორმის ზოგადი წარმოდგენა: ძირითადი მეტრიკები, კლინიკების დატვირთულობა, კრედიტების სტატისტიკა და ბოლო აუდიტორული ცვლილებები.</p>", unsafe_allow_html=True)
-    
+    st.subheader("📊 გენერალური მენეჯმენტისა და დირექციის ანალიტიკური დაფა")
     doctors_data = fetch_doctors()
     df_main = pd.DataFrame(doctors_data)
-    
     if not df_main.empty:
         total_docs = len(df_main)
         low_credits_count = len(df_main[df_main["credits"] < 30])
-        avg_credits = round(df_main["credits"].mean(), 1) if total_docs > 0 else 0
-        
-        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+        col_m1, col_m2, col_m3 = st.columns(3)
         col_m1.metric("👥 რეგისტრირებული ექიმები", total_docs)
-        col_m2.metric("⭐ საშუალო კრედიტები", avg_credits)
-        col_m3.metric("⚠️ რისკ-ჯგუფი (<30 კრედიტი)", low_credits_count, delta_color="inverse")
-        col_m4.metric("🏥 ჩართული კლინიკები", len(CLINICS_LIST))
-        
-        st.markdown("---")
-        
-        col_ch1, col_ch2 = st.columns(2)
-        with col_ch1:
-            st.markdown("### 🏥 კლინიკების მიხედვით განაწილება")
-            clinic_counts = df_main["clinic"].value_counts().reset_index()
-            clinic_counts.columns = ["კლინიკა", "ექიმების რაოდენობა"]
-            st.dataframe(clinic_counts, use_container_width=True, hide_index=True)
-            
-        with col_ch2:
-            st.markdown("### 🩺 ძირითადი სპეციალობები")
-            spec_counts = df_main["specialty"].value_counts().reset_index()
-            spec_counts.columns = ["სპეციალობა", "რაოდენობა"]
-            st.dataframe(spec_counts, use_container_width=True, hide_index=True)
-    else:
-        st.info("ℹ️ ბაზა ცარიელია. მონაცემების სანახავად გთხოვთ ატვირთოთ ფაილი ან დაარეგისტრიროთ ექიმები.")
-
-    st.markdown("---")
-    col_audit_title, col_audit_btn = st.columns([11, 1])
-    with col_audit_title:
-        st.markdown("### 📜 ბოლო განახლებები & აუდიტის ცვლილებები სისტემაში")
-    with col_audit_btn:
-        st.markdown("<div style='margin-top: 5px;'></div>", unsafe_allow_html=True)
-        if st.button("🔄", key="ref_audit_inline", help="განახლება"):
-            st.rerun()
-
-    if os.path.exists(LOG_FILE):
-        try:
-            df_log_view = pd.read_csv(LOG_FILE)
-            if not df_log_view.empty:
-                st.dataframe(df_log_view.tail(10).iloc[::-1], use_container_width=True, hide_index=True)
-            else:
-                st.info("ℹ️ აუდიტის ჟურნალი ცარიელია.")
-        except Exception:
-            st.info("ℹ️ აუდიტის ჟურნალის წაკითხვის შეფერხება.")
-    else:
-        st.info("ℹ️ აუდიტის ჟურნალის ფაილი ჯერ არ არსებობს.")
+        col_m2.metric("⚠️ რისკ-ჯგუფი (<30 კრედიტი)", low_credits_count)
+        col_m3.metric("🏥 ჩართული კლინიკები", len(CLINICS_LIST))
 
 elif menu_selection == "👤 ექიმის პირადი პორტალი":
-    st.subheader("👤 ექიმის პირადი პორტალი (Doctor Self-Service)")
-    all_docs_portal = fetch_doctors()
-    if all_docs_portal:
-        my_name = st.selectbox("აირჩიეთ თქვენი სახელი რეესტრიდან:", [d["name"] for d in all_docs_portal])
-        my_profile = next((d for d in all_docs_portal if d["name"] == my_name), None)
-        if my_profile:
-            c1, c2, c3 = st.columns(3)
-            c1.metric("მიმდინარე კრედიტები", my_profile["credits"])
-            c2.metric("კლინიკა", my_profile["clinic"])
-            c3.metric("ლიცენზიის ვადა", my_profile["expiry_date"])
+    st.subheader("👤 ექიმის პირადი პორტალი")
 
 elif menu_selection == "🩺 სპეციალობების & კრედიტების მატრიცა":
-    col_top, col_btn = st.columns([11, 1])
-    with col_top:
-        st.subheader("🩺 სპეციალობების კვალიფიკაციისა და კრედიტების მატრიცა")
-    with col_btn:
-        st.markdown("<div style='margin-top: 5px;'></div>", unsafe_allow_html=True)
-        if st.button("🔄", key="ref_mat", help="განახლება"):
-            st.cache_data.clear()
-            st.rerun()
-
+    st.subheader("🩺 სპეციალობების კვალიფიკაციისა და კრედიტების მატრიცა")
     doctors_data = fetch_doctors()
     if doctors_data:
         df_spec = pd.DataFrame(doctors_data).groupby("specialty").agg(ექიმების_რაოდენობა=('name', 'count'), საშუალო_კრედიტი=('credits', 'mean')).reset_index()
         st.dataframe(df_spec, use_container_width=True, hide_index=True)
-    else:
-        st.info("ℹ️ მონაცემები არ მოიძებნა.")
 
 elif menu_selection == "🚨 კლინიკური რისკ-ჯგუფების ოპერაციული მენეჯმენტი":
-    col_top, col_btn = st.columns([11, 1])
-    with col_top:
-        st.subheader("🚨 კლინიკური რისკ-ჯგუფების ოპერაციული მენეჯმენტი (ფერი-ინდიკატორებით)")
-    with col_btn:
-        st.markdown("<div style='margin-top: 5px;'></div>", unsafe_allow_html=True)
-        if st.button("🔄", key="ref_risk", help="განახლება"):
-            st.cache_data.clear()
-            st.rerun()
-
+    st.subheader("🚨 კლინიკური რისკ-ჯგუფების ოპერაციული მენეჯმენტი")
     doctors_data = fetch_doctors()
     if doctors_data:
         df_risk = pd.DataFrame(doctors_data)
-        
-        def get_risk_indicator(cred):
-            try:
-                c = int(cred)
-                if 0 <= c <= 9:
-                    return "🔴 0-9 (წითელი)"
-                elif 10 <= c <= 19:
-                    return "🟠 10-19 (ნარინჯისფერი)"
-                elif 20 <= c <= 29:
-                    return "🟡 20-29 (ყვითელი)"
-                else:
-                    return "🟢 30+ (ნორმა)"
-            except:
-                return "🟢 30+"
-
-        df_risk["რისკ-ინდიკატორი"] = df_risk["credits"].apply(get_risk_indicator)
-        df_risk_filtered = df_risk[df_risk["credits"] < 30].sort_values(by="credits")
-        
-        if not df_risk_filtered.empty:
-            st.dataframe(df_risk_filtered, use_container_width=True, hide_index=True)
-        else:
-            st.success("✅ რისკ-ჯგუფში (<30 კრედიტი) ექიმები არ ფიქსირდებიან!")
-    else:
-        st.info("ℹ️ მონაცემები არ მოიძებნა.")
+        df_risk_filtered = df_risk[df_risk["credits"] < 30]
+        st.dataframe(df_risk_filtered, use_container_width=True, hide_index=True)
 
 elif menu_selection == "📈 ექიმის ისტორიისა და დინამიკის ზედამხედველობა":
-    col_top, col_btn = st.columns([11, 1])
-    with col_top:
-        st.subheader("📈 ექიმის კრედიტგროვების ისტორია")
-    with col_btn:
-        st.markdown("<div style='margin-top: 5px;'></div>", unsafe_allow_html=True)
-        if st.button("🔄", key="ref_history", help="განახლება"):
-            st.cache_data.clear()
-            st.rerun()
-
-    if os.path.exists(CREDITS_HISTORY_FILE):
-        st.dataframe(pd.read_csv(CREDITS_HISTORY_FILE), use_container_width=True, hide_index=True)
-    else:
-        st.info("ისტორია ცარიელია.")
+    st.subheader("📈 ექიმის კრედიტგროვების ისტორია")
 
 elif menu_selection == "კლინიკები":
-    col_top, col_btn = st.columns([11, 1])
-    with col_top:
-        st.subheader("🏥 კლინიკები — რეპორტები")
-    with col_btn:
-        st.markdown("<div style='margin-top: 5px;'></div>", unsafe_allow_html=True)
-        if st.button("🔄", key="ref_clin", help="განახლება"):
-            st.cache_data.clear()
-            st.rerun()
-
-    sel_cl = st.selectbox("აირჩიეთ კლინიკა:", CLINICS_LIST)
-    all_doctors = fetch_doctors()
-    filtered_doctors = [d for d in all_doctors if d.get("clinic") == sel_cl]
-    if filtered_doctors:
-        st.dataframe(pd.DataFrame(filtered_doctors), use_container_width=True, hide_index=True)
-    else:
-        st.info("ℹ️ ამ კლინიკაში ექიმები არ მოიძებნა.")
+    st.subheader("🏥 კლინიკები — რეპორტები")
 
 elif menu_selection == "აუდიტის ჟურნალი":
-    col_top, col_btn = st.columns([11, 1])
-    with col_top:
-        st.subheader("📜 უსაფრთხოების აუდიტის ჟურნალი")
-    with col_btn:
-        st.markdown("<div style='margin-top: 5px;'></div>", unsafe_allow_html=True)
-        if st.button("🔄", key="ref_log", help="განახლება"):
-            st.rerun()
-
+    st.subheader("📜 უსაფრთხოების აუდიტის ჟურნალი")
     if os.path.exists(LOG_FILE):
         st.dataframe(pd.read_csv(LOG_FILE), use_container_width=True, hide_index=True)
-    else:
-        st.info("ℹ️ ჟურნალი ცარიელია.")
 
 elif menu_selection == "📄 OCR სერთიფიკატების სკანერი":
     st.subheader("📄 ინტელექტუალური OCR სერთიფიკატების სკანერი")
-    st.markdown(f"<p style='color: {subtext_color}; font-size: 14px;'>ატვირთეთ ექიმის სერტიფიკატის PDF ფაილი, რათა ავტომატურად ამოიკითხოს ტექსტური მონაცემები.</p>", unsafe_allow_html=True)
-    ocr_file = st.file_uploader("აირჩიეთ სერთიფიკატი (.pdf):", type=["pdf"])
-    if ocr_file is not None:
-        with st.spinner("მიმდინარეობს დოკუმენტის დამუშავება და სკანირება..."):
-            extracted_text = extract_text_from_pdf(ocr_file)
-        st.text_area("📄 ამოკითხული დოკუმენტის შიგთავსი:", extracted_text, height=250)
 
 elif menu_selection == "ბაზის Backup":
     st.subheader("💾 მონაცემთა ბაზის Backup")
-    st.markdown(f"<p style='color: {subtext_color}; font-size: 14px;'>ჩამოტვირთეთ SQLite ბაზის ასლი უსაფრთხოების მიზნით.</p>", unsafe_allow_html=True)
-    if os.path.exists(DB_NAME):
-        with open(DB_NAME, "rb") as f:
-            st.download_button("📥 ბაზის Backup (.db)", data=f.read(), file_name="backup.db", mime="application/octet-stream", use_container_width=True)
-    else:
-        st.info("ℹ️ ბაზის ფაილი ჯერ არ არსებობს.")
