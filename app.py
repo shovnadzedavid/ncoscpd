@@ -86,6 +86,7 @@ def init_database():
             "laliivanishvili": {"name": "ლალი ივანიშვილი (გენერალური დირექტორი)", "pass": default_pass_hash, "role": "director_lali"},
             "nikolozchaduneli": {"name": "ნიკოლოზ ჩადუნელი (კლინიკური დირექტორი)", "pass": default_pass_hash, "role": "director_nika"},
             "davitshovnadze": {"name": "დავით შოვნაძე", "pass": default_pass_hash, "role": "manager"},
+            "nunutsartsidze": {"name": "ნუნუკა ცარციძე (HR ხელმძღვანელი)", "pass": default_pass_hash, "role": "director_hr"},
             "doctorportal": {"name": "ექიმთა პორტალი (საერთო)", "pass": default_pass_hash, "role": "doctor"}
         }
         for login, info in default_users.items():
@@ -213,7 +214,7 @@ def render_login(is_lock_screen=False):
         
         if is_lock_screen:
             login_val = ""
-            for l_key, l_val in [("ლალი ივანიშვილი", "laliivanishvili"), ("ნიკოლოზ ჩადუნელი", "nikolozchaduneli"), ("დავით შოვნაძე", "davitshovnadze")]:
+            for l_key, l_val in [("ლალი ივანიშვილი", "laliivanishvili"), ("ნიკოლოზ ჩადუნელი", "nikolozchaduneli"), ("დავით შოვნაძე", "davitshovnadze"), ("ნუნუკა ცარციძე", "nunutsartsidze")]:
                 if l_key in str(st.session_state.current_user):
                     login_val = l_val
             password_input = st.text_input("🔑 შეიყვანეთ პაროლი:", type="password", key="lock_pass_field")
@@ -480,13 +481,14 @@ if st.sidebar.button("🔒 ეკრანის დაბლოკვა (Lock)
 
 st.sidebar.markdown("---")
 
-is_director = st.session_state.current_role in ["director_lali", "director_nika"]
+is_director = st.session_state.current_role in ["director_lali", "director_nika", "director_hr"]
 
 if st.session_state.current_role == "doctor":
     menu_options = ["👤 ექიმის პირადი პორტალი", "📚 აკრედიტებული კურსები"]
 elif is_director:
     menu_options = [
         "მთავარი დაფა & ანალიტიკა", 
+        "📚 სალექციო პროცესის მართვა",
         "ექიმების რეესტრი", 
         "🩺 სპეციალობების & კრედიტების მატრიცა",
         "🚨 კლინიკური რისკ-ჯგუფების ოპერაციული მენეჯმენტი",
@@ -682,7 +684,6 @@ if menu_selection == "📚 სალექციო პროცესის მ
                     st.success(f"✅ პერიოდისთვის ({rep_start} - {rep_end}) დამუშავდა ლექტორებისა და საგნების სტატისტიკა:")
                     st.dataframe(summary_df, use_container_width=True, hide_index=True)
                     
-                    # CSV ჩამოტვირთვა
                     csv_data = summary_df.to_csv(index=False, encoding='utf-8-sig')
                     st.download_button(
                         label="📥 რეპორტის CSV-დ ჩამოტვირთვა",
@@ -692,7 +693,6 @@ if menu_selection == "📚 სალექციო პროცესის მ
                         use_container_width=True
                     )
                     
-                    # PDF გენერაცია
                     if FPDF_AVAILABLE:
                         class PDF(FPDF):
                             def header(self):
@@ -796,6 +796,22 @@ elif menu_selection == "ექიმების რეესტრი":
         docs_list = fetch_doctors()
         if docs_list:
             df_docs = pd.DataFrame(docs_list)
+            
+            def get_risk_indicator(cred):
+                try:
+                    c = int(cred)
+                    if 0 <= c <= 9:
+                        return "🔴 0-9 (წითელი)"
+                    elif 10 <= c <= 19:
+                        return "🟠 10-19 (ნარინჯისფერი)"
+                    elif 20 <= c <= 29:
+                        return "🟡 20-29 (ყვითელი)"
+                    else:
+                        return "🟢 30+ (ნორმა)"
+                except:
+                    return "🟢 30+"
+
+            df_docs["რისკ-ინდიკატორი"] = df_docs["credits"].apply(get_risk_indicator)
             
             PAGE_SIZE = 20
             total_doctors = len(df_docs)
@@ -996,7 +1012,6 @@ elif menu_selection == "მთავარი დაფა & ანალიტ�
         st.info("ℹ️ ბაზა ცარიელია. მონაცემების სანახავად გთხოვთ ატვირთოთ ფაილი ან დაარეგისტრიროთ ექიმები.")
 
     st.markdown("---")
-    
     col_audit_title, col_audit_btn = st.columns([11, 1])
     with col_audit_title:
         st.markdown("### 📜 ბოლო განახლებები & აუდიტის ცვლილებები სისტემაში")
@@ -1049,7 +1064,7 @@ elif menu_selection == "🩺 სპეციალობების & კრე
 elif menu_selection == "🚨 კლინიკური რისკ-ჯგუფების ოპერაციული მენეჯმენტი":
     col_top, col_btn = st.columns([11, 1])
     with col_top:
-        st.subheader("🚨 კლინიკური რისკ-ჯგუფების ოპერაციული მენეჯმენტი")
+        st.subheader("🚨 კლინიკური რისკ-ჯგუფების ოპერაციული მენეჯმენტი (ფერი-ინდიკატორებით)")
     with col_btn:
         st.markdown("<div style='margin-top: 5px;'></div>", unsafe_allow_html=True)
         if st.button("🔄", key="ref_risk", help="განახლება"):
@@ -1058,8 +1073,29 @@ elif menu_selection == "🚨 კლინიკური რისკ-ჯგუ�
 
     doctors_data = fetch_doctors()
     if doctors_data:
-        df_risk_filtered = pd.DataFrame(doctors_data)[pd.DataFrame(doctors_data)["credits"] < 30]
-        st.dataframe(df_risk_filtered, use_container_width=True, hide_index=True)
+        df_risk = pd.DataFrame(doctors_data)
+        
+        def get_risk_indicator(cred):
+            try:
+                c = int(cred)
+                if 0 <= c <= 9:
+                    return "🔴 0-9 (წითელი)"
+                elif 10 <= c <= 19:
+                    return "🟠 10-19 (ნარინჯისფერი)"
+                elif 20 <= c <= 29:
+                    return "🟡 20-29 (ყვითელი)"
+                else:
+                    return "🟢 30+ (ნორმა)"
+            except:
+                return "🟢 30+"
+
+        df_risk["რისკ-ინდიკატორი"] = df_risk["credits"].apply(get_risk_indicator)
+        df_risk_filtered = df_risk[df_risk["credits"] < 30].sort_values(by="credits")
+        
+        if not df_risk_filtered.empty:
+            st.dataframe(df_risk_filtered, use_container_width=True, hide_index=True)
+        else:
+            st.success("✅ რისკ-ჯგუფში (<30 კრედიტი) ექიმები არ ფიქსირდებიან!")
     else:
         st.info("ℹ️ მონაცემები არ მოიძებნა.")
 
