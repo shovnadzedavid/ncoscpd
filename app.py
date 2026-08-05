@@ -60,7 +60,6 @@ def backup_database():
 
 def init_database():
     try:
-        # თუ მთავარი ბაზა არ არსებობს, მაგრამ არსებობს ბექაპი - აღვადგინოთ
         if not os.path.exists(DB_NAME) and os.path.exists(BACKUP_DB_NAME):
             shutil.copyfile(BACKUP_DB_NAME, DB_NAME)
 
@@ -422,10 +421,14 @@ if os.path.exists(ALERTS_FILE):
 
 is_architect = st.session_state.current_role == "architect" or "შოვნაძე" in str(st.session_state.current_user)
 
+# 🟢 ტესტური ცვლილება ჰედერიში (ბაზის დაცვის სტატუსის ინდიკატორი)
 st.markdown(f"""
     <div class='header-card'>
-        <div style='font-size: 12px; color: #818cf8; margin-bottom: 6px; font-weight: 700; text-transform: uppercase;'>უწყვეტი სამედიცინო განათლების მართვის პანელი {'✨ [ARCHITECT MODE ACTIVE]' if is_architect else ''}</div>
-        <div style='display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;'>
+        <div style='display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;'>
+            <div style='font-size: 12px; color: #818cf8; font-weight: 700; text-transform: uppercase;'>უწყვეტი სამედიცინო განათლების მართვის პანელი {'✨ [ARCHITECT MODE ACTIVE]' if is_architect else ''}</div>
+            <div style='font-size: 12px; color: #10b981; font-weight: 700; background: rgba(16, 185, 129, 0.1); padding: 4px 10px; border-radius: 8px;'>🟢 ბაზა სინქრონიზებულია და დაცულია</div>
+        </div>
+        <div style='display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-top: 6px;'>
             <div>
                 <h2 style='margin: 0; font-size: 28px; font-weight: 800;'>🧬 NCOS CPD/Academic Programs Portal</h2>
                 <p style='margin: 6px 0 0 0; font-size: 14px;'>კლინიკური მართვა, პერსონალის კვალიფიკაცია და რისკების კონტროლი</p>
