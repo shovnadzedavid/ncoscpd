@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 import sqlite3
 import os
+import shutil
 import bcrypt
 
 # PDF გენერაციისთვის FPDF-ის უსაფრთხო იმპორტი
@@ -27,6 +28,7 @@ st.set_page_config(
 )
 
 DB_NAME = "edumed_core_healthcare.db"
+BACKUP_DB_NAME = "edumed_core_healthcare_backup.db"
 LOG_FILE = "edumed_audit_logs.csv"
 CREDITS_HISTORY_FILE = "edumed_credits_history.csv"
 ALERTS_FILE = "edumed_broadcast_alerts.csv"
@@ -48,9 +50,20 @@ def check_password(password, hashed_password):
     except Exception:
         return False
 
-# --- 🗄️ SQLite ბაზა და მიგრაცია ---
+# --- 🗄️ SQLite ბაზა, მიგრაცია და ავტომატური ბექაპი ---
+def backup_database():
+    try:
+        if os.path.exists(DB_NAME):
+            shutil.copyfile(DB_NAME, BACKUP_DB_NAME)
+    except Exception:
+        pass
+
 def init_database():
     try:
+        # თუ მთავარი ბაზა არ არსებობს, მაგრამ არსებობს ბექაპი - აღვადგინოთ
+        if not os.path.exists(DB_NAME) and os.path.exists(BACKUP_DB_NAME):
+            shutil.copyfile(BACKUP_DB_NAME, DB_NAME)
+
         conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
         cursor = conn.cursor()
         cursor.execute('''
@@ -94,11 +107,12 @@ def init_database():
         }
         for login, info in default_users.items():
             cursor.execute("""
-                INSERT OR REPLACE INTO settings (manager_login, display_name, password, role) 
+                INSERT OR IGNORE INTO settings (manager_login, display_name, password, role) 
                 VALUES (?, ?, ?, ?)
             """, (login, info["name"], info["pass"], info["role"]))
         conn.commit()
         conn.close()
+        backup_database()
     except Exception as e:
         st.error(f"ტექნიკური შეცდომა ბაზის ინიციალიზაციისას: {e}")
 
@@ -113,6 +127,8 @@ CLINICS_LIST = [
 @st.cache_data(ttl=30, show_spinner=False)
 def fetch_doctors():
     try:
+        if not os.path.exists(DB_NAME) and os.path.exists(BACKUP_DB_NAME):
+            shutil.copyfile(BACKUP_DB_NAME, DB_NAME)
         conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
         df = pd.read_sql("SELECT * FROM doctors", conn)
         conn.close()
@@ -320,6 +336,7 @@ def render_login(is_lock_screen=False):
                                 """, (reg_name.strip(), reg_spec, 30, reg_clinic, reg_email.strip(), reg_phone.strip(), pass_hash, "თვითრეგისტრირებული ექიმი", "2028-12-31", datetime.now().strftime("%Y-%m-%d")))
                                 conn.commit()
                                 conn.close()
+                                backup_database()
                                 
                                 log_action(reg_name.strip(), "ექიმის თვითრეგისტრაცია", reg_name.strip(), f"კლინიკა: {reg_clinic}")
                                 st.success("✅ რეგისტრაცია წარმატებით დასრულდა! ახლა შეგიძლიათ თქვენი ელ-ფოსტით სისტემაში შესვლა.")
@@ -512,7 +529,7 @@ elif menu_selection == "📚 სალექციო პროცესის �
             st.cache_data.clear()
             st.rerun()
 
-    st.markdown(f"<p style='color: {subtext_color};'>მართეთ ლექციების განრიგი, აკონტროლეთ აუდიტორიების დატვირთულობა და გაიტანეთ დეტალური PDF რეპორტები საგნებისა და ლექტორების მიხედვით.</p>", unsafe_allow_html=True)
+    st.markdown(f"<p style='color: {subtext_color};'>მართეთ ლექციების განრიგი, აკონტროლეთ აუდიტორიების დატვირთულობა და გაიტანეთ დეტალური რეპორტები საგნებისა და ლექტორების მიხედვით.</p>", unsafe_allow_html=True)
 
     tab_sched_view, tab_sched_add, tab_sched_report = st.tabs(["📊 აუდიტორიების მატრიცა", "➕ ლექციის დამატება", "📅 განრიგის & საათების PDF რეპორტი"])
 
@@ -638,7 +655,7 @@ elif menu_selection == "📚 სალექციო პროცესის �
             gen_rep_btn = st.form_submit_button("📊 საათების რეპორტის გენერირება", use_container_width=True)
 
 # =========================================================================
-# 📋 ექიმების რეესტრი (რედაქტირების, მონიშვნისა და წაშლის სრული ფუნქციონალით)
+# 📋 ექიმების რეესტრი (მუდმივი დაცული ბაზით)
 # =========================================================================
 elif menu_selection == "ექიმების რეესტრი":
     col_top, col_btn = st.columns([11, 1])
@@ -681,14 +698,18 @@ elif menu_selection == "ექიმების რეესტრი":
                         """, (new_doc_name.strip(), new_doc_spec, new_doc_credits, new_doc_clinic, new_doc_email, new_doc_phone, new_doc_notes, "2028-12-31", datetime.now().strftime("%Y-%m-%d")))
                         conn.commit()
                         conn.close()
+                        backup_database()
+                        st.cache_data.clear()
+
                         log_action(st.session_state.current_user, "ექიმის რეგისტრაცია", new_doc_name.strip(), f"კლინიკა: {new_doc_clinic}, კრედიტი: {new_doc_credits}")
                         st.success(f"✅ ექიმი **{new_doc_name}** წარმატებით დარეგისტრირდა!")
+                        st.rerun()
                     except Exception as e:
                         st.error(f"ტექნიკური შეცდომა ბაზის ინიციალიზაციისას: {e}")
 
     with tab_list:
         st.markdown("### 📋 ექიმების სია, პირდაპირი რედაქტირება და წაშლა")
-        st.markdown(f"<p style='color: {subtext_color}; font-size: 14px;'>შეგიძლია პირდაპირ ცხრილში შეცვალო ნებისმიერი მონაცემი და დააჭირო ღილაკს „ცვლილებების შენახვა“. ასევე შეგიძლია მონიშნო ექიმები წაშლისთვის.</p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='color: {subtext_color}; font-size: 14px;'>შეგიძლია პირდაპირ ცხრილში შეცვალო ნებისმიერი მონაცემი და დააჭირო ღილაკს „ცვლილებების შენახვა“. ბაზა დაცულია მონაცემთა დაკარგვისგან.</p>", unsafe_allow_html=True)
         
         docs_list = fetch_doctors()
         if docs_list:
@@ -723,7 +744,6 @@ elif menu_selection == "ექიმების რეესტრი":
 
             df_page.insert(0, "მონიშვნა", st.session_state[select_all_key])
 
-            # ცხრილის რედაქტირება (შეგიძლია შეცვალო ძირითადი ველები პირდაპირ)
             edited_df = st.data_editor(
                 df_page,
                 column_config={
@@ -751,7 +771,6 @@ elif menu_selection == "ექიმების რეესტრი":
             with col_act3:
                 delete_selected_btn = st.button("🗑️ მონიშნული ექიმების წაშლა", type="secondary", use_container_width=True)
 
-            # რედაქტირებული მონაცემების ბაზაში შენახვის ლოგიკა
             if save_edits_btn:
                 try:
                     conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
@@ -774,13 +793,15 @@ elif menu_selection == "ექიმების რეესტრი":
                     
                     conn.commit()
                     conn.close()
+                    backup_database()
+                    st.cache_data.clear()
+
                     log_action(st.session_state.current_user, "ექიმების რედაქტირება", "რეესტრი", "განახლდა მონაცემები ცხრილიდან")
                     st.success("✅ ცვლილებები წარმატებით შეინახა ბაზაში!")
                     st.rerun()
                 except Exception as e:
                     st.error(f"შეცდომა შენახვისას: {e}")
 
-            # წაშლის ლოგიკა
             if delete_selected_btn:
                 selected_names = []
                 for _, row in edited_df.iterrows():
@@ -795,6 +816,9 @@ elif menu_selection == "ექიმების რეესტრი":
                             cursor.execute("DELETE FROM doctors WHERE name = ?", (doc_name,))
                         conn.commit()
                         conn.close()
+                        backup_database()
+                        st.cache_data.clear()
+
                         log_action(st.session_state.current_user, "ექიმების მასობრივი წაშლა", f"{len(selected_names)} ექიმი", "მონიშნული კადრები წაიშალა")
                         st.success(f"✅ წარმატებით წაიშალა **{len(selected_names)}** მონიშნული ექიმი!")
                         st.rerun()
