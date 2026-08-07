@@ -54,13 +54,12 @@ def init_database():
         conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
         cursor = conn.cursor()
         
-        # ცხრილის შექმნა მხოლოდ იმ შემთხვევაში, თუ ის არ არსებობს (მონაცემები არასდროს იშლება)
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS doctors (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT UNIQUE,
                 specialty TEXT,
-                credits INTEGER,
+                credits REAL,
                 clinic TEXT,
                 email TEXT,
                 phone TEXT,
@@ -320,7 +319,7 @@ def render_login(is_lock_screen=False):
                                 cursor.execute("""
                                     INSERT OR REPLACE INTO doctors (name, specialty, credits, clinic, email, phone, password, notes, expiry_date, last_updated)
                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                                """, (reg_name.strip(), reg_spec, 30, reg_clinic, reg_email.strip(), reg_phone.strip(), pass_hash, "თვითრეგისტრირებული ექიმი", "2028-12-31", datetime.now().strftime("%Y-%m-%d")))
+                                """, (reg_name.strip(), reg_spec, 30.0, reg_clinic, reg_email.strip(), reg_phone.strip(), pass_hash, "თვითრეგისტრირებული ექიმი", "2028-12-31", datetime.now().strftime("%Y-%m-%d")))
                                 conn.commit()
                                 conn.close()
                                 
@@ -431,7 +430,7 @@ if theme_choice != st.session_state.app_theme:
     st.session_state.app_theme = theme_choice
     st.rerun()
 
-if st.sidebar.button("🔒 ეკრანი დაბლოკვა (Lock)", use_container_width=True):
+if st.sidebar.button("🔒 ეკრანის დაბლოკვა (Lock)", use_container_width=True):
     st.session_state.screen_locked = True
     st.rerun()
 
@@ -641,7 +640,7 @@ elif menu_selection == "📚 სალექციო პროცესის �
             gen_rep_btn = st.form_submit_button("📊 საათების რეპორტის გენერირება", use_container_width=True)
 
 # =========================================================================
-# 📋 ექიმების რეესტრი (მუდმივი და დაცული ბაზით)
+# 📋 ექიმების რეესტრი (მთელი და ათწილადი კრედიტების მხარდაჭერით)
 # =========================================================================
 elif menu_selection == "ექიმების რეესტრი":
     col_top, col_btn = st.columns([11, 1])
@@ -662,7 +661,8 @@ elif menu_selection == "ექიმების რეესტრი":
             with col_r1:
                 new_doc_name = st.text_input("👤 სახელი და გვარი (* სავალდებულო):", placeholder="მაგ: დავით არაბიძე")
                 new_doc_spec = st.text_input("🩺 სპეციალობა:", placeholder="მაგ: კარდიოლოგია")
-                new_doc_credits = st.number_input("⭐ მიმდინარე კრედიტები:", min_value=0, max_value=200, value=30)
+                # 🔄 შეცვლილია: მიიღებს ათწილადებსაც (მაგ: 10.75)
+                new_doc_credits = st.number_input("⭐ მიმდინარე კრედიტები:", min_value=0.0, max_value=500.0, value=30.0, step=0.25, format="%.2f")
             with col_r2:
                 new_doc_clinic = st.selectbox("🏥 კლინიკა:", CLINICS_LIST)
                 new_doc_phone = st.text_input("📞 ტელეფონი:", placeholder="+995 599 00 00 00")
@@ -694,7 +694,7 @@ elif menu_selection == "ექიმების რეესტრი":
 
     with tab_list:
         st.markdown("### 📋 ექიმების სია, პირდაპირი რედაქტირება და წაშლა")
-        st.markdown(f"<p style='color: {subtext_color}; font-size: 14px;'>შეგიძლია პირდაპირ ცხრილში შეცვალო ნებისმიერი მონაცემი და დააჭირო ღილაკს „ცვლილებების შენახვა“. ბაზა დაცულია მონაცემთა დაკარგვისგან.</p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='color: {subtext_color}; font-size: 14px;'>შეგიძლია პირდაპირ ცხრილში შეცვალო ნებისმიერი მონაცემი (მათ შორის ათწილადი კრედიტები) და დააჭირო ღილაკს „ცვლილებების შენახვა“.</p>", unsafe_allow_html=True)
         
         docs_list = fetch_doctors()
         if docs_list:
@@ -702,10 +702,10 @@ elif menu_selection == "ექიმების რეესტრი":
             
             def get_risk_indicator(cred):
                 try:
-                    c = int(cred)
-                    if 0 <= c <= 9: return "🔴 0-9 (წითელი)"
-                    elif 10 <= c <= 19: return "🟠 10-19 (ნარინჯისფერი)"
-                    elif 20 <= c <= 29: return "🟡 20-29 (ყვითელი)"
+                    c = float(cred)
+                    if 0.0 <= c <= 9.99: return "🔴 0-9 (წითელი)"
+                    elif 10.0 <= c <= 19.99: return "🟠 10-19 (ნარინჯისფერი)"
+                    elif 20.0 <= c <= 29.99: return "🟡 20-29 (ყვითელი)"
                     else: return "🟢 30+ (ნორმა)"
                 except: return "🟢 30+"
 
@@ -764,7 +764,7 @@ elif menu_selection == "ექიმების რეესტრი":
                         doc_id = row.get("id")
                         doc_name = row.get("name")
                         doc_spec = row.get("specialty")
-                        doc_cred = row.get("credits")
+                        doc_cred = float(row.get("credits", 0.0))
                         doc_clinic = row.get("clinic")
                         doc_phone = row.get("phone")
                         doc_email = row.get("email")
@@ -827,7 +827,7 @@ elif menu_selection == "მთავარი დაფა & ანალიტ�
     df_main = pd.DataFrame(doctors_data)
     if not df_main.empty:
         total_docs = len(df_main)
-        low_credits_count = len(df_main[df_main["credits"] < 30])
+        low_credits_count = len(df_main[df_main["credits"] < 30.0])
         col_m1, col_m2, col_m3 = st.columns(3)
         col_m1.metric("👥 რეგისტრირებული ექიმები", total_docs)
         col_m2.metric("⚠️ რისკ-ჯგუფი (<30 კრედიტი)", low_credits_count)
@@ -848,7 +848,7 @@ elif menu_selection == "🚨 კლინიკური რისკ-ჯგუ�
     doctors_data = fetch_doctors()
     if doctors_data:
         df_risk = pd.DataFrame(doctors_data)
-        df_risk_filtered = df_risk[df_risk["credits"] < 30]
+        df_risk_filtered = df_risk[df_risk["credits"] < 30.0]
         st.dataframe(df_risk_filtered, use_container_width=True, hide_index=True)
 
 elif menu_selection == "📈 ექიმის ისტორიისა და დინამიკის ზედამხედველობა":
