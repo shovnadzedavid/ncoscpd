@@ -28,7 +28,7 @@ st.set_page_config(
 )
 
 DB_NAME = "edumed_core_healthcare.db"
-BACKUP_DB_NAME = "edumed_core_healthcare_backup.db" # მუდმივი სარეზერვო ფაილი
+BACKUP_DB_NAME = "edumed_core_healthcare_backup.db"
 LOG_FILE = "edumed_audit_logs.csv"
 CREDITS_HISTORY_FILE = "edumed_credits_history.csv"
 ALERTS_FILE = "edumed_broadcast_alerts.csv"
@@ -60,7 +60,6 @@ def backup_database():
 
 def init_database():
     try:
-        # თუ მთავარი ბაზა წაიშალა, მაგრამ სარეზერვო არსებობს — ავტომატურად აღვადგინოთ!
         if not os.path.exists(DB_NAME) and os.path.exists(BACKUP_DB_NAME):
             shutil.copyfile(BACKUP_DB_NAME, DB_NAME)
 
@@ -114,7 +113,7 @@ def init_database():
         
         conn.commit()
         conn.close()
-        backup_database() # ყოველი ინიციალიზაციისას ვინახავთ ბექაპსაც
+        backup_database()
     except Exception as e:
         st.error(f"ტექნიკური შეცდომა ბაზის ინიციალიზაციისას: {e}")
 
@@ -359,31 +358,29 @@ if st.session_state.screen_locked:
     render_login(is_lock_screen=True)
     st.stop()
 
-# --- 💎 სრული თემების და ვიჯეტების CSS სტილები ---
+# --- 💎 სრული თემების და ცოცხალი დიზაინის CSS სტილები ---
 is_dark = st.session_state.app_theme == "Dark (მუქი)"
 
 if is_dark:
     bg_color = "#030712"
     app_bg = "radial-gradient(circle at 15% 15%, #070d1d 0%, #030712 50%, #020408 100%)"
     text_color = "#f8fafc"
-    header_bg = "linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.85) 100%)"
+    header_bg = "linear-gradient(135deg, rgba(30, 41, 59, 0.75) 0%, rgba(15, 23, 42, 0.9) 100%)"
     card_bg = "linear-gradient(145deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.8) 100%)"
     sidebar_bg = "linear-gradient(180deg, #030712 0%, #070d1d 50%, #0f172a 100%)"
     subtext_color = "#94a3b8"
     sidebar_label_bg = "rgba(30, 41, 59, 0.4)"
-    sidebar_label_hover = "linear-gradient(135deg, rgba(79, 70, 229, 0.3) 0%, rgba(99, 102, 241, 0.4) 100%)"
     input_bg = "#1e293b"
     input_text = "#f8fafc"
 else:
     bg_color = "#f8fafc"
     app_bg = "radial-gradient(circle at 15% 15%, #ffffff 0%, #f1f5f9 50%, #e2e8f0 100%)"
     text_color = "#0f172a"
-    header_bg = "linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(241, 245, 249, 0.95) 100%)"
+    header_bg = "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(241, 245, 249, 0.98) 100%)"
     card_bg = "linear-gradient(145deg, rgba(255, 255, 255, 0.95) 0%, rgba(241, 245, 249, 0.95) 100%)"
     sidebar_bg = "linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 50%, #cbd5e1 100%)"
     subtext_color = "#334155"
     sidebar_label_bg = "rgba(255, 255, 255, 0.9)"
-    sidebar_label_hover = "linear-gradient(135deg, rgba(79, 70, 229, 0.2) 0%, rgba(99, 102, 241, 0.3) 100%)"
     input_bg = "#ffffff"
     input_text = "#0f172a"
 
@@ -391,9 +388,14 @@ st.markdown(f"""
     <style>
         .stApp {{ background: {app_bg} !important; color: {text_color} !important; font-family: 'Inter', sans-serif; }}
         .header-card {{
-            background: {header_bg}; padding: 30px; border-radius: 20px;
-            border: 1px solid rgba(129, 140, 248, 0.25); border-left: 8px solid #6366f1;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); margin-bottom: 25px; backdrop-filter: blur(20px);
+            background: {header_bg}; padding: 28px 35px; border-radius: 22px;
+            border: 1px solid rgba(129, 140, 248, 0.3); border-left: 8px solid #6366f1;
+            box-shadow: 0 20px 45px rgba(79, 70, 229, 0.12); margin-bottom: 25px; backdrop-filter: blur(20px);
+            transition: all 0.3s ease;
+        }}
+        .header-card:hover {{
+            box-shadow: 0 25px 55px rgba(79, 70, 229, 0.2);
+            border-color: rgba(129, 140, 248, 0.5);
         }}
         .header-card * {{ color: inherit !important; }}
         .login-card-container {{
@@ -403,11 +405,29 @@ st.markdown(f"""
         section[data-testid="stSidebar"] {{ background: {sidebar_bg} !important; border-right: 1px solid rgba(129, 140, 248, 0.2); }}
         section[data-testid="stSidebar"] .stRadio label {{
             background: {sidebar_label_bg}; border-radius: 12px; padding: 10px 14px !important;
-            border: 1px solid rgba(129, 140, 248, 0.2); font-weight: 600;
+            border: 1px solid rgba(129, 140, 248, 0.2); font-weight: 600; transition: all 0.2s;
+        }}
+        section[data-testid="stSidebar"] .stRadio label:hover {{
+            border-color: #6366f1; transform: translateX(3px);
         }}
         .stButton > button {{
             border-radius: 12px !important; font-weight: 700 !important;
             background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%) !important; color: white !important;
+            box-shadow: 0 4px 15px rgba(79, 70, 229, 0.35); transition: all 0.2s ease;
+        }}
+        .stButton > button:hover {{
+            transform: translateY(-2px); box-shadow: 0 6px 20px rgba(79, 70, 229, 0.5);
+        }}
+        @keyframes pulseGlow {{
+            0% {{ box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }}
+            70% {{ box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }}
+            100% {{ box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }}
+        }}
+        .live-badge {{
+            display: inline-block; background: rgba(16, 185, 129, 0.15); color: #10b981; 
+            padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 700;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            animation: pulseGlow 2s infinite;
         }}
     </style>
 """, unsafe_allow_html=True)
@@ -424,16 +444,20 @@ if os.path.exists(ALERTS_FILE):
 
 is_architect = st.session_state.current_role == "architect" or "შოვნაძე" in str(st.session_state.current_user)
 
+# 🟢 განახლებული ცოცხალი ჰედერი დიზაინის ელემენტით
 st.markdown(f"""
     <div class='header-card'>
-        <div style='font-size: 12px; color: #818cf8; margin-bottom: 6px; font-weight: 700; text-transform: uppercase;'>უწყვეტი სამედიცინო განათლების მართვის პანელი {'✨ [ARCHITECT MODE ACTIVE]' if is_architect else ''}</div>
-        <div style='display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;'>
+        <div style='display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;'>
+            <div style='font-size: 12px; color: #818cf8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;'>უწყვეტი სამედიცინო განათლების მართვის პანელი {'✨ [ARCHITECT MODE ACTIVE]' if is_architect else ''}</div>
+            <div><span class='live-badge'>🟢 სისტემა აქტიურია & დაცულია</span></div>
+        </div>
+        <div style='display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-top: 8px;'>
             <div>
-                <h2 style='margin: 0; font-size: 28px; font-weight: 800;'>🧬 NCOS CPD/Academic Programs Portal</h2>
-                <p style='margin: 6px 0 0 0; font-size: 14px;'>კლინიკური მართვა, პერსონალის კვალიფიკაცია და რისკების კონტროლი</p>
+                <h2 style='margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.5px;'>🧬 NCOS CPD/Academic Programs Portal</h2>
+                <p style='margin: 6px 0 0 0; font-size: 14px; opacity: 0.85;'>კლინიკური მართვა, პერსონალის კვალიფიკაცია და რისკების კონტროლი</p>
             </div>
             <div>
-                <span style='background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; padding: 10px 22px; border-radius: 25px; font-size: 14px; font-weight: 700;'>👤 აქტიური მენეჯერი: <b>{st.session_state.current_user}</b></span>
+                <span style='background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; padding: 10px 22px; border-radius: 25px; font-size: 14px; font-weight: 700; box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3);'>👤 აქტიური მენეჯერი: <b>{st.session_state.current_user}</b></span>
             </div>
         </div>
     </div>
@@ -700,7 +724,7 @@ elif menu_selection == "ექიმების რეესტრი":
                         """, (new_doc_name.strip(), new_doc_spec, new_doc_credits, new_doc_clinic, new_doc_email, new_doc_phone, new_doc_notes, "2028-12-31", datetime.now().strftime("%Y-%m-%d")))
                         conn.commit()
                         conn.close()
-                        backup_database() # ავტომატური ბექაპი შენახვისას
+                        backup_database()
                         st.cache_data.clear()
 
                         log_action(st.session_state.current_user, "ექიმის რეგისტრაცია", new_doc_name.strip(), f"კლინიკა: {new_doc_clinic}, კრედიტი: {new_doc_credits}")
@@ -795,7 +819,7 @@ elif menu_selection == "ექიმების რეესტრი":
                     
                     conn.commit()
                     conn.close()
-                    backup_database() # ავტომატური ბექაპი რედაქტირებისას
+                    backup_database()
                     st.cache_data.clear()
 
                     log_action(st.session_state.current_user, "ექიმების რედაქტირება", "რეესტრი", "განახლდა მონაცემები ცხრილიდან")
@@ -818,7 +842,7 @@ elif menu_selection == "ექიმების რეესტრი":
                             cursor.execute("DELETE FROM doctors WHERE name = ?", (doc_name,))
                         conn.commit()
                         conn.close()
-                        backup_database() # ავტომატური ბექაპი წაშლისას
+                        backup_database()
                         st.cache_data.clear()
 
                         log_action(st.session_state.current_user, "ექიმების მასობრივი წაშლა", f"{len(selected_names)} ექიმი", "მონიშნული კადრები წაიშალა")
